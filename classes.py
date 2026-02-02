@@ -1,10 +1,22 @@
 from abc import ABC, abstractmethod
 import numpy as np
 
+class GroundSet:
+    def __init__(self, elements):
+        """
+        Args:
+            elements: A list of indices or objects (e.g., [0, 1, 2, ..., 19])
+        """
+        self.elements = elements
+        self.nb_elements = len(elements)
+
+    def __iter__(self):
+        return iter(self.elements)
+
 
 class MSDObjective(ABC):
     """
-    Abstract Base Class for submodular functions.
+    Abstract Base Class for submodular+MSD functions.
     """
 
     @abstractmethod
@@ -32,66 +44,178 @@ class MSDObjective(ABC):
         return current_val + gain, new_auxiliary
 
 
-class MSDFacilityLocation(MSDObjective):
-    def __init__(self, sim_matrix, facility_coords, lambda_param=1.0):
+import numpy as np
+
+
+class MSDFacilityLocation:  # Inherits from MSDObjective if required by your script
+    def __init__(self, passenger_coords, grid_coords, lambda_param, k, distortion):
         """
         Args:
-            sim_matrix: [Facilities x Customers]
-            facility_coords: [Facilities x 2] (Lat/Lon)
-            lambda_param: Weight for diversification (distance sum)
+            passenger_coords: [N x 2] array of Uber pickup locations
+            grid_coords: [M x 2] array of candidate hub locations
+            lambda_param: Weighting between coverage and diversity
+            k: Cardinality constraint (total hubs to select)
+            distortion: Multiplier for the submodular term (usually 1/2 in greedy)
         """
-        self.sim_matrix = sim_matrix
-        self.coords = facility_coords
+        self.passengers = passenger_coords
+        self.grid = grid_coords
         self.lambda_param = lambda_param
-        self.num_facilities, self.num_customers = sim_matrix.shape
+        self.k = k
+        self.distortion = distortion
+
+        # Hardcoded normalization constant from Section 6.1
+        self.m_constant = 0.1
+
+        self.num_passengers = len(passenger_coords)
+        # Denominator for diversity (Max-Sum)
+        self.num_pairs = (k * (k - 1)) / 2 if k > 1 else 1
+
+    def _get_similarity_row(self, grid_idx):
+        """
+        Calculates 1 - M(i, j) where M(i, j) is normalized Manhattan distance.
+        Matches the utility function logic: fD(S) = sum(1 - min M(l, p)).
+        """
+        # L1 Distance: |i1 - j1| + |i2 - j2|
+        diffs = np.abs(self.passengers - self.grid[grid_idx])
+        l1_dists = np.sum(diffs, axis=1)
+
+        # Normalize by m = 0.266
+        normalized_dists = l1_dists / self.m_constant
+
+        # Return 1 - normalized_dist (capped at 0)
+        return np.maximum(0, 1.0 - normalized_dists)
 
     def evaluate(self, S):
+        """
+        Full evaluation of a set S. Required by the Greedy algorithm to initialize.
+        """
         if not S:
-            # Initial state: (max_sim_vector, running_dist_sum)
-            return 0.0, (np.zeros(self.num_customers), 0.0)
+            # Auxiliary state: (max_similarities_per_passenger, sum_of_distances_between_hubs)
+            return 0.0, (np.zeros(self.num_passengers), 0.0)
 
-        # Facility Location Part
-        max_sims = np.max(self.sim_matrix[S, :], axis=0)
-        fac_val = np.sum(max_sims)
+        # 1. Coverage (Facility Location) term
+        max_sims = np.zeros(self.num_passengers)
+        for idx in S:
+            max_sims = np.maximum(max_sims, self._get_similarity_row(idx))
 
-        # Diversity Part (Pairwise sum)
+        coverage_term = np.sum(max_sims) / self.num_passengers
+
+        # 2. Diversity (Max-Sum) term
         dist_sum = 0.0
-        for i in range(len(S)):
-            for j in range(i + 1, len(S)):
-                dist_sum += np.linalg.norm(self.coords[S[i]] - self.coords[S[j]])
+        n_S = len(S)
+        if n_S > 1:
+            for i in range(n_S):
+                for j in range(i + 1, n_S):
+                    diff = np.abs(self.grid[S[i]] - self.grid[S[j]])
+                    dist_sum += np.sum(diff) / self.m_constant
 
-        total_val = fac_val + (self.lambda_param * dist_sum)
+        avg_dist = (dist_sum / self.num_pairs) if self.num_pairs > 0 else 0.0
+
+        # Weighted combination
+        total_val = (1 - self.lambda_param) * self.distortion * coverage_term + (self.lambda_param * avg_dist)
+
         return total_val, (max_sims, dist_sum)
 
     def marginal_gain(self, e, S, current_val, auxiliary):
         """
-        Incremental Gain: Delta_f = (Coverage_Gain) + lambda * (Dist_to_S)
+        Efficiently calculates the increase in utility if element 'e' is added to 'S'.
         """
-        # Unpack the current state
         max_sims, current_dist_sum = auxiliary
 
-        # 1. Coverage Gain (Facility Location)
-        new_max_sims = np.maximum(max_sims, self.sim_matrix[e, :])
-        coverage_gain = np.sum(new_max_sims - max_sims)
+        # 1. Coverage Gain
+        sim_e = self._get_similarity_row(e)
+        new_max_sims = np.maximum(max_sims, sim_e)
+        # Benefit is the sum of improvements across all passengers
+        coverage_gain = (np.sum(new_max_sims) - np.sum(max_sims)) / self.num_passengers
 
-        # 2. Diversity Gain (incremental distance)
-        if not S:
-            dist_to_existing = 0.0
-        else:
-            # Vectorized O(|S|) calculation
-            diffs = self.coords[S] - self.coords[e]
-            dist_to_existing = np.sum(np.sqrt(np.sum(diffs ** 2, axis=1)))
+        # 2. Diversity Gain
+        dist_to_existing = 0.0
+        if S:
+            # Manhattan distance from new candidate 'e' to all selected 'S'
+            hub_diffs = np.abs(self.grid[S] - self.grid[e])
+            dist_to_existing = np.sum(np.sum(hub_diffs, axis=1)) / self.m_constant
 
-        total_gain = coverage_gain + (self.lambda_param * dist_to_existing)
-
-        # Update the state forward
         new_dist_sum = current_dist_sum + dist_to_existing
-        return total_gain, (new_max_sims, new_dist_sum)
+        diversity_gain = (new_dist_sum - current_dist_sum) / self.num_pairs
 
-    def add_one_element(self, e, S, current_val, auxiliary):
-        """
-        Commit e to S. The algorithms expect the new total value
-        and the updated auxiliary state.
-        """
-        gain, updated_aux = self.marginal_gain(e, S, current_val, auxiliary)
-        return current_val + gain, updated_aux
+        # Total gain calculation
+        total_gain = (1 - self.lambda_param) * self.distortion * coverage_gain + (self.lambda_param * diversity_gain)
+
+        return total_gain, (new_max_sims, new_dist_sum)
+#
+# class MSDFacilityLocation(MSDObjective):
+#     def __init__(self, passenger_coords, grid_coords, lambda_param, k, distortion):
+#         """
+#         Args:
+#             passenger_coords: [N_passengers x 2] (Normalized so that diameter is <= 1)
+#             grid_coords: [N_grid x 2] (The Manhattan grid)
+#             lambda_param: Weight in [0, 1]
+#             k: Total number of elements to be selected
+#             distortion: multiplier of f(S) in the distorted objective function
+#         """
+#         self.passengers = passenger_coords
+#         self.grid = grid_coords
+#         self.lambda_param = lambda_param
+#         self.k = k
+#         self.num_pairs = (k * (k-1))/2
+#         self.num_passengers = len(passenger_coords)
+#         self.distortion = distortion
+#
+#     def _get_similarity_row(self, grid_idx):
+#         """Calculates 1 - dist for one grid point vs all passengers on the fly."""
+#         # Euclidean distances from one grid point to all passengers
+#         diffs = np.abs(self.passengers - self.grid[grid_idx])
+#         l1_dists = np.sum(diffs, axis=1)
+#
+#         # Normalize distances to [0, 1] based on a local max or pre-defined radius
+#         # For simplicity, we assume coordinates are already in a [0, 1] range.
+#         # If not, divide dists by a max_radius.
+#         normalized_dists = l1_dists / self.norm
+#         return np.maximum(0, 1.0 - normalized_dists)
+#
+#     def evaluate(self, S):
+#         if not S:
+#             return 0.0, (np.zeros(self.num_passengers), 0.0)
+#
+#         # 1. Coverage (Facility Location)
+#         max_sims = np.zeros(self.num_passengers)
+#         for idx in S:
+#             max_sims = np.maximum(max_sims, self._get_similarity_row(idx))
+#
+#         coverage_term = np.sum(max_sims) / self.num_passengers
+#
+#         # 2. Diversity (Max-Sum)
+#         dist_sum = 0.0
+#         n_S = len(S)
+#         for i in range(n_S):
+#             for j in range(i + 1, n_S):
+#                 dist_sum += np.linalg.norm(self.grid[S[i]] - self.grid[S[j]])
+#
+#         avg_dist = (dist_sum / self.num_pairs) if self.num_pairs > 0 else 0.0
+#         # diversity_term = avg_dist
+#
+#         total_val = (1 - self.lambda_param) * self.distortion * coverage_term + (self.lambda_param * avg_dist)
+#         return total_val, (max_sims, dist_sum)
+#
+#     def marginal_gain(self, e, S, current_val, auxiliary):
+#         max_sims, current_dist_sum = auxiliary
+#
+#         # 1. Coverage Gain
+#         sim_e = self._get_similarity_row(e)
+#         new_max_sims = np.maximum(max_sims, sim_e)
+#         # Delta = (NewAvg - OldAvg)
+#         coverage_gain = (np.sum(new_max_sims) - np.sum(max_sims)) / self.num_passengers
+#
+#         # 2. Diversity Gain
+#         dist_to_existing = 0.0 if not S else np.sum(np.sqrt(np.sum((self.grid[S] - self.grid[e]) ** 2, axis=1)))
+#         new_dist_sum = current_dist_sum + dist_to_existing
+#
+#         diversity_gain = (new_dist_sum - current_dist_sum) / self.num_pairs
+#
+#         total_gain = (1 - self.lambda_param) * self.distortion * coverage_gain + (self.lambda_param * diversity_gain)
+#
+#         return total_gain, (new_max_sims, new_dist_sum)
+#
+#     def add_one_element(self, e, S, current_val, auxiliary):
+#         gain, updated_aux = self.marginal_gain(e, S, current_val, auxiliary)
+#         return current_val + gain, updated_aux
