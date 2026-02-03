@@ -3,7 +3,7 @@ from classes import MSDObjective, GroundSet
 
 def greedy(objective: MSDObjective, ground_set: GroundSet, k):
     """
-    Standard Greedy Algorithm for  maximization (Borodin et al.).
+    Non-private Distorted Greedy Algorithm (Borodin et al.).
 
     Args:
         objective: An instance of MSDFacilityLocation
@@ -14,7 +14,7 @@ def greedy(objective: MSDObjective, ground_set: GroundSet, k):
         S: The list of selected element indices
         current_val: The final objective value
     """
-    objective.distortion = 1
+    objective.distortion = 0.5
     S = []
     # Initialize state: f(empty_set) = 0
     current_val, auxiliary = objective.evaluate(S)
@@ -30,16 +30,16 @@ def greedy(objective: MSDObjective, ground_set: GroundSet, k):
         # Scan all available candidates
         for e in remaining_elements:
             # Calculate gain using our memory-efficient logic
-            gain, potential_aux = objective.marginal_gain(e, S, current_val, auxiliary)
+            gain, potential_aux = objective.marginal_gain(e, S, auxiliary)
 
-            if gain > best_gain:
+            if gain >= best_gain:
                 best_gain = gain
                 best_e = e
                 best_aux = potential_aux
 
-        # If no improvement is possible, stop early
-        if best_e is None or best_gain <= 0:
-            break
+        # # If no improvement is possible, stop early
+        # if best_e is None or best_gain <= 0:
+        #     break
 
         # Commit the best choice: update value and the 'snapshot' (auxiliary)
         # Note: We use the already calculated best_aux to avoid re-calculating

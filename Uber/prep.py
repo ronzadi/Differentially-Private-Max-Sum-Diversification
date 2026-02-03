@@ -49,49 +49,94 @@ class UberOptimizer:
 
         return np.array(coords)
 
+    # def process_raw_data(self, input_csv, output_csv):
+    #     """Equivalent to dataInit (Pre-processing with Tilted Box and Reservoir Sampling)"""
+    #     # Line slopes for the quadrilateral check
+    #     m1 = (self.lat_s - self.lat_w) / (self.lon_s - self.lon_w)
+    #     m2 = (self.lat_e - self.lat_s) / (self.lon_e - self.lon_s)
+    #     m3 = (self.lat_n - self.lat_w) / (self.lon_n - self.lon_w)
+    #     m4 = (self.lat_e - self.lat_n) / (self.lon_e - self.lon_n)
+    #
+    #     processed_data = []
+    #     count = 0
+    #
+    #     # Reading in chunks to handle large file sizes without crashing RAM
+    #     for chunk in pd.read_csv(input_csv, chunksize=10000):
+    #         # C++ Column Mapping: 0: Date, 1: Lat, 2: Lon
+    #         lats = chunk.iloc[:, 1].values
+    #         lons = chunk.iloc[:, 2].values
+    #
+    #         # Perform the 4-check quadrilateral filter
+    #         check1 = lats > self.lat_w + m1 * (lons - self.lon_w)
+    #         check2 = lats > self.lat_s + m2 * (lons - self.lon_s)
+    #         check3 = lats < self.lat_w + m3 * (lons - self.lon_w)
+    #         check4 = lats < self.lat_n + m4 * (lons - self.lon_n)
+    #
+    #         valid_mask = check1 & check2 & check3 & check4
+    #         valid_points = np.column_stack((lats[valid_mask], lons[valid_mask]))
+    #
+    #         for pt in valid_points:
+    #             if len(processed_data) < self.n_data:
+    #                 processed_data.append(pt)
+    #             else:
+    #                 # Reservoir Sampling logic
+    #                 prob = self.n_data / (count + 1)
+    #                 if random.random() < prob:
+    #                     idx = random.randint(0, self.n_data - 1)
+    #                     processed_data[idx] = pt
+    #             count += 1
+    #
+    #     # Shuffle and Save
+    #     random.shuffle(processed_data)
+    #     df_out = pd.DataFrame(processed_data, columns=['lat', 'lon'])
+    #     df_out.to_csv(output_csv, index=False)
+    #     return df_out.values
+
     def process_raw_data(self, input_csv, output_csv):
-        """Equivalent to dataInit (Pre-processing with Tilted Box and Reservoir Sampling)"""
-        # Line slopes for the quadrilateral check
-        m1 = (self.lat_s - self.lat_w) / (self.lon_s - self.lon_w)
-        m2 = (self.lat_e - self.lat_s) / (self.lon_e - self.lon_s)
-        m3 = (self.lat_n - self.lat_w) / (self.lon_n - self.lon_w)
-        m4 = (self.lat_e - self.lat_n) / (self.lon_e - self.lon_n)
+        # Define the 4 corners in order to form a perimeter
+        pts = [
+            (self.lat_s, self.lon_s),
+            (self.lat_w, self.lon_w),
+            (self.lat_n, self.lon_n),
+            (self.lat_e, self.lon_e)
+        ]
 
         processed_data = []
         count = 0
 
-        # Reading in chunks to handle large file sizes without crashing RAM
         for chunk in pd.read_csv(input_csv, chunksize=10000):
-            # C++ Column Mapping: 0: Date, 1: Lat, 2: Lon
             lats = chunk.iloc[:, 1].values
-            lons = chunk.iloc[:, 2  ].values
+            lons = chunk.iloc[:, 2].values
 
-            # Perform the 4-check quadrilateral filter
-            check1 = lats > self.lat_w + m1 * (lons - self.lon_w)
-            check2 = lats > self.lat_s + m2 * (lons - self.lon_s)
-            check3 = lats < self.lat_w + m3 * (lons - self.lon_w)
-            check4 = lats < self.lat_n + m4 * (lons - self.lon_n)
+            # Cross product check: (p2.y-p1.y)*(px-p1.x) - (p2.x-p1.x)*(py-p1.y)
+            def side_check(p1, p2, px, py):
+                return (p2[1] - p1[1]) * (px - p1[0]) - (p2[0] - p1[0]) * (py - p1[1])
 
-            valid_mask = check1 & check2 & check3 & check4
+            s1 = side_check(pts[0], pts[1], lats, lons)
+            s2 = side_check(pts[1], pts[2], lats, lons)
+            s3 = side_check(pts[2], pts[3], lats, lons)
+            s4 = side_check(pts[3], pts[0], lats, lons)
+
+            # Point is inside if it's on the same side of all four boundary vectors
+            valid_mask = ((s1 > 0) & (s2 > 0) & (s3 > 0) & (s4 > 0)) | \
+                         ((s1 < 0) & (s2 < 0) & (s3 < 0) & (s4 < 0))
+
             valid_points = np.column_stack((lats[valid_mask], lons[valid_mask]))
 
             for pt in valid_points:
                 if len(processed_data) < self.n_data:
                     processed_data.append(pt)
                 else:
-                    # Reservoir Sampling logic
                     prob = self.n_data / (count + 1)
                     if random.random() < prob:
                         idx = random.randint(0, self.n_data - 1)
                         processed_data[idx] = pt
                 count += 1
 
-        # Shuffle and Save
         random.shuffle(processed_data)
         df_out = pd.DataFrame(processed_data, columns=['lat', 'lon'])
         df_out.to_csv(output_csv, index=False)
         return df_out.values
-
     def evaluate_function(self, S_indices, grid_coords, passenger_coords):
         """Equivalent to funValue (The Facility Location Objective)"""
         if not S_indices:
@@ -109,19 +154,19 @@ class UberOptimizer:
 
         return self.n_data - sum_dist
 
+if __name__ == '__main__':
+    # --- Example Usage ---
+    manhattan_box = [40.81794, 40.6866, 40.80204, 40.71315,
+                     -73.96483, -73.99197, -73.91436, -74.04519]
 
-# --- Example Usage ---
-manhattan_box = [40.81794, 40.6866, 40.80204, 40.71315,
-                 -73.96483, -73.99197, -73.91436, -74.04519]
+    opt = UberOptimizer(manhattan_box)
 
-opt = UberOptimizer(manhattan_box)
+    # 1. Create the tilted grid (1000 locations, 20 columns)
+    grid = opt.create_grid(1000, 20)
 
-# 1. Create the tilted grid (1000 locations, 20 columns)
-grid = opt.create_grid(1000, 20)
+    print(grid)
+    # 2. Filter and sample raw Uber data
+    # passengers = opt.process_raw_data("uber-raw-data-apr14.csv", "uber-small.csv")
 
-print(grid)
-# 2. Filter and sample raw Uber data
-# passengers = opt.process_raw_data("uber-raw-data-apr14.csv", "uber-small.csv")
-
-# 3. Dummy Evaluation (Example)
-# val = opt.evaluate_function({0, 10, 50}, grid, passengers)
+    # 3. Dummy Evaluation (Example)
+    # val = opt.evaluate_function({0, 10, 50}, grid, passengers)
