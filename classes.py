@@ -55,7 +55,7 @@ class MSDFacilityLocation(MSDObjective):  # Inherits from MSDObjective if requir
             grid_coords: [M x 2] array of candidate hub locations
             lambda_param: Weighting between coverage and diversity
             k: Cardinality constraint (total hubs to select)
-            distortion: Multiplier for the submodular term (usually 1/2 in greedy)
+            distortion: Multiplier for the submodular term
         """
         self.passengers = passenger_coords
         self.grid = grid_coords
@@ -65,7 +65,7 @@ class MSDFacilityLocation(MSDObjective):  # Inherits from MSDObjective if requir
         self.sensitivity = sensitivity
 
         # Hardcoded normalization constant
-        self.m_constant = 0.2
+        self.m_constant = 0.1
 
         self.num_passengers = len(passenger_coords)
         # Denominator for diversity (Max-Sum)

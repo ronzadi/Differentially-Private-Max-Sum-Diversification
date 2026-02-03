@@ -1,172 +1,135 @@
 import numpy as np
 import pandas as pd
 import random
-import time
+from scipy.spatial import ConvexHull
 
 
 class UberOptimizer:
-    def __init__(self, box, n_data=10000):
+    def __init__(self, points, n_data):
         """
-        box: [latNorth, latSouth, latEast, latWest, lonNorth, lonSouth, lonEast, lonWest]
+        Initializes the optimizer with a Convex Hull boundary.
+        points: A list of (lat, lon) tuples or a 2D numpy array.
         """
-        self.box = box
         self.n_data = n_data
 
-        # Unpack for coordinate math
-        self.lat_n, self.lat_s, self.lat_e, self.lat_w = box[0:4]
-        self.lon_n, self.lon_s, self.lon_e, self.lon_w = box[4:8]
+        # 1. Ensure points are a 2D numpy array (N, 2)
+        self.points = np.asarray(points)
+        if self.points.ndim == 1:
+            # Safety for flat lists
+            self.points = self.points.reshape(-1, 2)
 
-        max_val = max(
-            abs(self.lon_n - self.lon_s) + abs(self.lat_n - self.lat_s),
-            abs(self.lon_e - self.lon_w) + abs(self.lat_e - self.lat_w),
-            abs(self.lon_n - self.lon_w) + abs(self.lat_n - self.lat_w),
-            abs(self.lon_e - self.lon_s) + abs(self.lat_e - self.lat_s)
-        )
-        self.norm = max_val
+        # 2. Build the Convex Hull and extract the Half-space equations
+        # Equations are in the form: a*lat + b*lon + c <= 0
+        self.hull = ConvexHull(self.points)
+        self.A = self.hull.equations[:, :2]  # Coefficients [a, b]
+        self.b = self.hull.equations[:, 2]  # Constant [c]
 
-    def create_grid(self, n_locs, n_cols, spurious=0):
-        """Equivalent to createGrid in the C++ code."""
-        n_main = n_locs - spurious
-        n_rows = n_main // n_cols
+        # 3. Calculate L1 Normalization (Diameter of Manhattan)
+        # This is the max possible distance between any two points in the hull
+        self.norm = self._calculate_norm()
 
-        coords = []
-        for i in range(n_main):
-            row_idx = i // n_cols
-            col_idx = i % n_cols
+    def _calculate_norm(self):
+        """Vectorized L1 diameter calculation."""
+        # Calculate all-to-all L1 distances between hull vertices
+        diffs = self.points[:, np.newaxis, :] - self.points[np.newaxis, :, :]
+        l1_dists = np.sum(np.abs(diffs), axis=-1)
+        return np.max(l1_dists)
 
-            # Step progress (0.0 to 1.0)
-            step_v = row_idx * (1.0 / (n_rows - 1)) if n_rows > 1 else 0
-            step_h = col_idx * (1.0 / (n_cols - 1)) if n_cols > 1 else 0
+    def is_inside(self, pts_array, tol=1e-12):
+        """
+        Vectorized check: Is point(s) inside the hull?
+        pts_array: numpy array of shape (N, 2)
+        Returns: Boolean mask of shape (N,)
+        """
+        # Matrix multiplication check: A @ x + b <= 0
+        # We transpose pts_array to (2, N) to align with A (Facets, 2)
+        return np.all(self.A @ pts_array.T + self.b[:, None] <= tol, axis=0)
 
-            # Vector addition to create the tilted parallelogram
-            lat = self.lat_s + (self.lat_w - self.lat_s) * step_v + (self.lat_e - self.lat_s) * step_h
-            lon = self.lon_s + (self.lon_w - self.lon_s) * step_v + (self.lon_e - self.lon_s) * step_h
-            coords.append([lat, lon])
+    def create_grid(self, n_locs):
+        """
+        Generates a candidate grid clipped to the Manhattan hull.
+        """
+        min_lat, min_lon = self.points.min(axis=0)
+        max_lat, max_lon = self.points.max(axis=0)
 
-        # Add spurious points at the North pole
-        for _ in range(spurious):
-            coords.append([self.lat_n, self.lon_n])
+        # Create a bounding box slightly denser than n_locs to account for clipping
+        grid_size = int(np.sqrt(n_locs * 2))
+        lats = np.linspace(min_lat, max_lat, grid_size)
+        lons = np.linspace(min_lon, max_lon, grid_size)
 
-        return np.array(coords)
+        lat_grid, lon_grid = np.meshgrid(lats, lons)
+        candidate_pts = np.c_[lat_grid.ravel(), lon_grid.ravel()]
 
-    # def process_raw_data(self, input_csv, output_csv):
-    #     """Equivalent to dataInit (Pre-processing with Tilted Box and Reservoir Sampling)"""
-    #     # Line slopes for the quadrilateral check
-    #     m1 = (self.lat_s - self.lat_w) / (self.lon_s - self.lon_w)
-    #     m2 = (self.lat_e - self.lat_s) / (self.lon_e - self.lon_s)
-    #     m3 = (self.lat_n - self.lat_w) / (self.lon_n - self.lon_w)
-    #     m4 = (self.lat_e - self.lat_n) / (self.lon_e - self.lon_n)
-    #
-    #     processed_data = []
-    #     count = 0
-    #
-    #     # Reading in chunks to handle large file sizes without crashing RAM
-    #     for chunk in pd.read_csv(input_csv, chunksize=10000):
-    #         # C++ Column Mapping: 0: Date, 1: Lat, 2: Lon
-    #         lats = chunk.iloc[:, 1].values
-    #         lons = chunk.iloc[:, 2].values
-    #
-    #         # Perform the 4-check quadrilateral filter
-    #         check1 = lats > self.lat_w + m1 * (lons - self.lon_w)
-    #         check2 = lats > self.lat_s + m2 * (lons - self.lon_s)
-    #         check3 = lats < self.lat_w + m3 * (lons - self.lon_w)
-    #         check4 = lats < self.lat_n + m4 * (lons - self.lon_n)
-    #
-    #         valid_mask = check1 & check2 & check3 & check4
-    #         valid_points = np.column_stack((lats[valid_mask], lons[valid_mask]))
-    #
-    #         for pt in valid_points:
-    #             if len(processed_data) < self.n_data:
-    #                 processed_data.append(pt)
-    #             else:
-    #                 # Reservoir Sampling logic
-    #                 prob = self.n_data / (count + 1)
-    #                 if random.random() < prob:
-    #                     idx = random.randint(0, self.n_data - 1)
-    #                     processed_data[idx] = pt
-    #             count += 1
-    #
-    #     # Shuffle and Save
-    #     random.shuffle(processed_data)
-    #     df_out = pd.DataFrame(processed_data, columns=['lat', 'lon'])
-    #     df_out.to_csv(output_csv, index=False)
-    #     return df_out.values
+        # Clip to the real Manhattan shape
+        mask = self.is_inside(candidate_pts)
+        return candidate_pts[mask]
 
     def process_raw_data(self, input_csv, output_csv):
-        # Define the 4 corners in order to form a perimeter
-        pts = [
-            (self.lat_s, self.lon_s),
-            (self.lat_w, self.lon_w),
-            (self.lat_n, self.lon_n),
-            (self.lat_e, self.lon_e)
-        ]
-
+        """
+        Filters Uber data using the Convex Hull and Reservoir Sampling.
+        """
         processed_data = []
         count = 0
 
-        for chunk in pd.read_csv(input_csv, chunksize=10000):
-            lats = chunk.iloc[:, 1].values
-            lons = chunk.iloc[:, 2].values
+        # Chunked reading to save RAM
+        for chunk in pd.read_csv(input_csv, chunksize=50000):
+            # Assume Col 1: Lat, Col 2: Lon (Typical for Uber Raw Data)
+            chunk_pts = chunk.iloc[:, [1, 2]].values
 
-            # Cross product check: (p2.y-p1.y)*(px-p1.x) - (p2.x-p1.x)*(py-p1.y)
-            def side_check(p1, p2, px, py):
-                return (p2[1] - p1[1]) * (px - p1[0]) - (p2[0] - p1[0]) * (py - p1[1])
-
-            s1 = side_check(pts[0], pts[1], lats, lons)
-            s2 = side_check(pts[1], pts[2], lats, lons)
-            s3 = side_check(pts[2], pts[3], lats, lons)
-            s4 = side_check(pts[3], pts[0], lats, lons)
-
-            # Point is inside if it's on the same side of all four boundary vectors
-            valid_mask = ((s1 > 0) & (s2 > 0) & (s3 > 0) & (s4 > 0)) | \
-                         ((s1 < 0) & (s2 < 0) & (s3 < 0) & (s4 < 0))
-
-            valid_points = np.column_stack((lats[valid_mask], lons[valid_mask]))
+            # Vectorized filter check
+            mask = self.is_inside(chunk_pts)
+            valid_points = chunk_pts[mask]
 
             for pt in valid_points:
                 if len(processed_data) < self.n_data:
                     processed_data.append(pt)
                 else:
+                    # Reservoir Sampling logic
                     prob = self.n_data / (count + 1)
                     if random.random() < prob:
                         idx = random.randint(0, self.n_data - 1)
                         processed_data[idx] = pt
                 count += 1
 
+        # Save the filtered, sampled data
         random.shuffle(processed_data)
         df_out = pd.DataFrame(processed_data, columns=['lat', 'lon'])
         df_out.to_csv(output_csv, index=False)
         return df_out.values
+
     def evaluate_function(self, S_indices, grid_coords, passenger_coords):
-        """Equivalent to funValue (The Facility Location Objective)"""
+        """
+        Facility Location Objective: Sum(1 - dist_min/norm)
+        """
         if not S_indices:
             return 0.0
 
         selected_hubs = grid_coords[list(S_indices)]
-
-        # Calculate Manhattan distance for every passenger to every selected hub
-        # Result is [N_passengers x N_selected_hubs]
         sum_dist = 0
+
+        # Calculate min distance for each passenger to the set of hubs
         for p in passenger_coords:
-            # Vectorized Manhattan distance calculation
+            # Manhattan distance normalized by Manhattan's diameter
             dists = np.sum(np.abs(selected_hubs - p), axis=1) / self.norm
             sum_dist += np.min(dists)
 
         return self.n_data - sum_dist
 
-if __name__ == '__main__':
-    # --- Example Usage ---
-    manhattan_box = [40.81794, 40.6866, 40.80204, 40.71315,
-                     -73.96483, -73.99197, -73.91436, -74.04519]
 
-    opt = UberOptimizer(manhattan_box)
+# --- Usage Example ---
+if __name__ == "__main__":
+    full_island_hull = [
+        (40.7005038, -74.0144209), (40.7112088, -73.9776851),
+        (40.7282434, -73.9720702), (40.7418214, -73.9733576),
+        (40.7754746, -73.9430232), (40.7974885, -73.9296695),
+        (40.8350989, -73.9354202), (40.8713327, -73.9109482),
+        (40.8769142, -73.9269985), (40.8512745, -73.9448513),
+        (40.7607748, -74.0040745), (40.7474382, -74.0115323),
+        (40.7125758, -74.0182271)
+    ]
 
-    # 1. Create the tilted grid (1000 locations, 20 columns)
-    grid = opt.create_grid(1000, 20)
+    opt = UberOptimizer(full_island_hull, n_data=20000)
 
-    print(grid)
-    # 2. Filter and sample raw Uber data
-    # passengers = opt.process_raw_data("uber-raw-data-apr14.csv", "uber-small.csv")
-
-    # 3. Dummy Evaluation (Example)
-    # val = opt.evaluate_function({0, 10, 50}, grid, passengers)
+    # Generate the grid clipped to Manhattan
+    manhattan_grid = opt.create_grid(n_locs=1000)
+    print(f"Generated {len(manhattan_grid)} points inside Manhattan.")
