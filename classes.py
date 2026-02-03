@@ -47,8 +47,8 @@ class MSDObjective(ABC):
 import numpy as np
 
 
-class MSDFacilityLocation:  # Inherits from MSDObjective if required by your script
-    def __init__(self, passenger_coords, grid_coords, lambda_param, k, distortion):
+class MSDFacilityLocation(MSDObjective):  # Inherits from MSDObjective if required by your script
+    def __init__(self, passenger_coords, grid_coords, lambda_param, k, distortion, sensitivity):
         """
         Args:
             passenger_coords: [N x 2] array of Uber pickup locations
@@ -62,9 +62,10 @@ class MSDFacilityLocation:  # Inherits from MSDObjective if required by your scr
         self.lambda_param = lambda_param
         self.k = k
         self.distortion = distortion
+        self.sensitivity = sensitivity
 
         # Hardcoded normalization constant
-        self.m_constant = 0.22
+        self.m_constant = 0.2
 
         self.num_passengers = len(passenger_coords)
         # Denominator for diversity (Max-Sum)
