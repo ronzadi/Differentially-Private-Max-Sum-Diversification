@@ -151,3 +151,31 @@ def DP_sample_greedy(objective: MSDObjective, ground_set: GroundSet, k, eps, pri
     objective.distortion = 1
     val,_ = objective.evaluate(S)
     return S, val
+
+
+def random_baseline(objective: MSDObjective, ground_set: GroundSet, k):
+    """
+    Random Baseline Algorithm.
+    Selects a random feasible subset of size k and evaluates it.
+
+    Args:
+        objective: An instance of MSDFacilityLocation
+        ground_set: An instance of GroundSet
+        k: Cardinality constraint
+
+    Returns:
+        S: The list of randomly selected element indices
+        final_val: The objective value of the random set
+    """
+    # 1. Ensure distortion is set to 1 for final evaluation consistency
+    objective.distortion = 1.0
+
+    # 2. Randomly sample k elements from the ground set
+    # We use random.sample to ensure no duplicates (sampling without replacement)
+    S = random.sample(list(ground_set.elements), k)
+
+    # 3. Perform a full evaluation of the random set
+    # evaluate returns (value, auxiliary); we only need the value
+    final_val, _ = objective.evaluate(S)
+
+    return S, final_val

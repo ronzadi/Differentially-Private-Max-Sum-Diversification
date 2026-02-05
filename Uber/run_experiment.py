@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import random
 from prep import UberOptimizer
-from greedy_algorithms import greedy, DP_greedy, DP_sample_greedy
+from greedy_algorithms import greedy, DP_greedy, DP_sample_greedy, random_baseline
 import numpy as np
 import pandas as pd
 from classes import MSDFacilityLocation, GroundSet
@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 
-def run_manhattan_experiment(input_csv, k, lambda_param, eps, private, gamma):
+def run_uber_experiment(input_csv, k, lambda_param, eps, private, gamma):
     # manhattan_box = [40.81794, 40.6866, 40.80204, 40.71315,
     #                  -73.96483, -73.99197, -73.91436, -74.04519]
     full_island_hull = [
@@ -30,11 +30,11 @@ def run_manhattan_experiment(input_csv, k, lambda_param, eps, private, gamma):
     passenger_coords = opt.process_raw_data(input_csv, "sampled_passengers.csv")
 
     # Using your optimized 2000-point, 80-column grid
-    # grid_coords = opt.create_grid(n_locs=500)
+    grid_coords = opt.create_grid(n_locs=50)
     # hubs_coords = pd.DataFrame(passenger_coords).sample(500)
     # hubs_coords.to_csv('hubs_coords.csv', index=False)
-    hubs_coords = pd.read_csv("hubs_coords.csv")
-    grid_coords = hubs_coords.values
+    # hubs_coords = pd.read_csv("hubs_coords.csv")
+    # grid_coords = hubs_coords.values
 
     # 3. Setup Objective and GroundSet
     # Note: We pass the 'opt.norm' to the objective to ensure correct scaling
@@ -66,9 +66,9 @@ def run_manhattan_experiment(input_csv, k, lambda_param, eps, private, gamma):
     dp_greedy_selected, dp_greedy_value = DP_sample_greedy(objective, ground_set, k, eps, private, True, gamma)
     print(f"DP Non-Oblivious Sample Greedy Objective Value: {dp_greedy_value:.4f}")
 
+    random_selected, random_value = random_baseline(objective, ground_set, k)
+    print(f"Random Objective Value: {random_value:.4f}")
 
-
-    
     #  Export Results
     selected_hubs = grid_coords[dp_greedy_selected]
     results_df = pd.DataFrame(selected_hubs, columns=['lat', 'lon'])
@@ -130,11 +130,11 @@ if __name__ == "__main__":
     eps_target = 0.1
 
     params = {
-        'k' : 5,
-        'lambda_param': 0.05,
-        'eps' : 1,
+        'k': 10,
+        'lambda_param': 0.1,
+        'eps': 0.1,
         'private': True,
         'gamma': 0.1
     }
 
-    hubs = run_manhattan_experiment(data_path, **params)
+    hubs = run_uber_experiment(data_path, **params)
