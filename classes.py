@@ -65,7 +65,7 @@ class MSDFacilityLocation(MSDObjective):  # Inherits from MSDObjective if requir
         self.sensitivity = sensitivity
 
         # Hardcoded normalization constant
-        self.m_constant = 0.1
+        self.m_constant = 0.27
 
         self.num_passengers = len(passenger_coords)
         # Denominator for diversity (Max-Sum)

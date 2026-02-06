@@ -45,24 +45,81 @@ class UberOptimizer:
         # We transpose pts_array to (2, N) to align with A (Facets, 2)
         return np.all(self.A @ pts_array.T + self.b[:, None] <= tol, axis=0)
 
-    def create_grid(self, n_locs):
+    import numpy as np
+
+    def create_grid(self, n_locs, spurious):
         """
-        Generates a candidate grid clipped to the Manhattan hull.
+        Guarantees exactly n_locs.
+        Adjusts grid spacing (delta) to ensure n_real points are evenly
+        distributed specifically inside the polygon.
         """
+        n_real = n_locs - spurious
+        north_pole = self.points[np.argmax(self.points[:, 0])]
+
+        if n_real <= 0:
+            return np.tile(north_pole, (n_locs, 1))
+
+        # 1. Get Bounding Box
         min_lat, min_lon = self.points.min(axis=0)
         max_lat, max_lon = self.points.max(axis=0)
 
-        # Create a bounding box slightly denser than n_locs to account for clipping
-        grid_size = int(np.sqrt(n_locs * 2))
-        lats = np.linspace(min_lat, max_lat, grid_size)
-        lons = np.linspace(min_lon, max_lon, grid_size)
+        # 2. Estimate initial spacing (Delta)
+        # Area of bounding box / target points gives an approximate cell size
+        area_approx = (max_lat - min_lat) * (max_lon - min_lon)
+        # We use a slightly smaller delta because the polygon is smaller than the box
+        delta = np.sqrt(area_approx / (n_real * 2))
 
-        lat_grid, lon_grid = np.meshgrid(lats, lons)
-        candidate_pts = np.c_[lat_grid.ravel(), lon_grid.ravel()]
+        real_pts = []
+        # We iterate a few times to fine-tune the density if the polygon is weird
+        for _ in range(3):
+            lats = np.arange(min_lat, max_lat, delta)
+            lons = np.arange(min_lon, max_lon, delta)
+            lat_grid, lon_grid = np.meshgrid(lats, lons)
+            candidates = np.c_[lat_grid.ravel(), lon_grid.ravel()]
 
-        # Clip to the real Manhattan shape
-        mask = self.is_inside(candidate_pts)
-        return candidate_pts[mask]
+            # Filter by polygon
+            mask = self.is_inside(candidates)
+            valid = candidates[mask]
+
+            if len(valid) >= n_real:
+                # We found enough! Keep these and break
+                real_pts = valid
+                break
+            else:
+                # Not enough points landed in the polygon, make the grid denser
+                delta *= 0.8
+
+                # 3. Evenly Downsample the valid set to exactly n_real
+        # This maintains the "grid" alignment while hitting the exact count
+        if len(real_pts) > n_real:
+            indices = np.linspace(0, len(real_pts) - 1, n_real, dtype=int)
+            real_pts = real_pts[indices]
+        elif len(real_pts) < n_real:
+            # Emergency fallback: pad with north pole if the polygon is tiny
+            padding = n_real - len(real_pts)
+            real_pts = np.vstack([real_pts, np.tile(north_pole, (padding, 1))])
+
+        # 4. Add Spurious
+        spurious_pts = np.tile(north_pole, (spurious, 1))
+        return np.vstack([real_pts, spurious_pts])
+    # def create_grid(self, n_locs):
+    #     """
+    #     Generates a candidate grid clipped to the Manhattan hull.
+    #     """
+    #     min_lat, min_lon = self.points.min(axis=0)
+    #     max_lat, max_lon = self.points.max(axis=0)
+    #
+    #     # Create a bounding box slightly denser than n_locs to account for clipping
+    #     grid_size = int(np.sqrt(n_locs * 2))
+    #     lats = np.linspace(min_lat, max_lat, grid_size)
+    #     lons = np.linspace(min_lon, max_lon, grid_size)
+    #
+    #     lat_grid, lon_grid = np.meshgrid(lats, lons)
+    #     candidate_pts = np.c_[lat_grid.ravel(), lon_grid.ravel()]
+    #
+    #     # Clip to the real Manhattan shape
+    #     mask = self.is_inside(candidate_pts)
+    #     return candidate_pts[mask]
 
     def process_raw_data(self, input_csv, output_csv):
         """

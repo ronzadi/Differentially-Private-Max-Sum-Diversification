@@ -29,40 +29,39 @@ def run_uber_experiment(input_csv, k, lambda_param, eps, private, gamma):
     # 2. Pre-process Data
     passenger_coords = opt.process_raw_data(input_csv, "sampled_passengers.csv")
 
-    # Using your optimized 2000-point, 80-column grid
-    grid_coords = opt.create_grid(n_locs=500)
+    grid_coords = opt.create_grid(n_locs=1000, spurious=900)
     # hubs_coords = pd.DataFrame(passenger_coords).sample(500)
     # hubs_coords.to_csv('hubs_coords.csv', index=False)
     # hubs_coords = pd.read_csv("hubs_coords.csv")
     # grid_coords = hubs_coords.values
+    print(len(grid_coords))
 
     # 3. Setup Objective and GroundSet
-    # Note: We pass the 'opt.norm' to the objective to ensure correct scaling
     objective = MSDFacilityLocation(
         passenger_coords=passenger_coords,
         grid_coords=grid_coords,
         lambda_param=lambda_param,
         k=k,
-        distortion=1.0,  # Greedy will set this to 0.5 internally
-        sensitivity=1/len(passenger_coords)
+        distortion=1.0,
+        sensitivity=1 / len(passenger_coords)
     )
 
     # GroundSet is just the list of indices available in our grid
     ground_set = GroundSet(elements=list(range(len(grid_coords))))
 
-    #  Run Non-Private Greedy ##################################################
+    ##################################################  Run Non-Private Greedy ######################################
     nonpriv_selected, nonpriv_value = greedy(objective, ground_set, k)
     print(f"Non-private Greedy Objective Value: {nonpriv_value:.4f}")
 
-    #  Run DP Greedy ##################################################
+    ##################################################  Run DP Greedy ###############################################
     dp_greedy_selected, dp_greedy_value = DP_greedy(objective, ground_set, k, eps, private)
     print(f"DP Greedy Objective Value: {dp_greedy_value:.4f}")
 
-    #  Run DP Oblivious Sample Greedy ##################################################
+    ##################################################  Run DP Oblivious Sample Greedy ##############################
     dp_greedy_selected, dp_greedy_value = DP_sample_greedy(objective, ground_set, k, eps, private, True, gamma)
     print(f"DP Oblivious Sample Greedy Objective Value: {dp_greedy_value:.4f}")
 
-    #  Run DP Non-Oblivious Sample Greedy ##################################################
+    ##################################################  Run DP Non-Oblivious Sample Greedy ##########################
     dp_greedy_selected, dp_greedy_value = DP_sample_greedy(objective, ground_set, k, eps, private, True, gamma)
     print(f"DP Non-Oblivious Sample Greedy Objective Value: {dp_greedy_value:.4f}")
 
@@ -139,7 +138,7 @@ if __name__ == "__main__":
     eps_target = 0.1
 
     params = {
-        'k': 10,
+        'k': 4,
         'lambda_param': 0.1,
         'eps': 0.1,
         'private': True,
