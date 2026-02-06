@@ -6,7 +6,7 @@ from classes import MSDFacilityLocation, GroundSet
 from greedy_algorithms import greedy, DP_greedy, DP_sample_greedy, random_baseline
 
 
-def run_uber_experiment(objective, ground_set, passenger_coords, grid_coords, params):
+def run_uber_experiment(objective, ground_set, passenger_coords, grid_coords, params, rep):
     """
     Executes all algorithm variants and generates results/visualizations.
     """
@@ -25,21 +25,21 @@ def run_uber_experiment(objective, ground_set, passenger_coords, grid_coords, pa
 
     # --- Execute and Collect Results ---
     final_selected = {}
+    for i in range(rep):
+        for name, func, args in algorithms:
+            print(f"--- Running {name} ---")
+            # Handle different return signatures (Random doesn't return queries)
+            res = func(*args)
+            selected, value = res[0], res[1]
+            queries = res[2] if len(res) > 2 else 0
 
-    for name, func, args in algorithms:
-        print(f"--- Running {name} ---")
-        # Handle different return signatures (Random doesn't return queries)
-        res = func(*args)
-        selected, value = res[0], res[1]
-        queries = res[2] if len(res) > 2 else 0
+            print(f"{name} Value: {value:.4f}")
 
-        print(f"{name} Value: {value:.4f}")
-
-        results.append({
-            'alg': name, 'k': k, 'lambda_param': lam, 'eps': eps,
-            'private': p, 'selected': selected, 'value': value, 'queries': queries
-        })
-        final_selected[name] = selected
+            results.append({
+                'alg': name, 'k': k, 'lambda_param': lam, 'eps': eps,
+                'private': p, 'selected': selected, 'value': value, 'queries': queries
+            })
+            final_selected[name] = selected
 
     # --- Save Results ---
     df_results = pd.DataFrame(results)
@@ -118,4 +118,4 @@ if __name__ == "__main__":
     g_set = GroundSet(elements=list(range(len(grid))))
 
     # 3. Run Experiment
-    hubs = run_uber_experiment(obj, g_set, passengers, grid, CONFIG)
+    hubs = run_uber_experiment(obj, g_set, passengers, grid, CONFIG, 10)
