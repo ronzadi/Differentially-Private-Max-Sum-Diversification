@@ -19,6 +19,7 @@ def greedy(objective: MSDObjective, ground_set: GroundSet, k):
         current_val: The final objective value
     """
     objective.distortion = 0.5
+    objective.num_queries = 0
     S = []
     # Initialize state: f(empty_set) = 0
     current_val, auxiliary = objective.evaluate(S)
@@ -57,7 +58,7 @@ def greedy(objective: MSDObjective, ground_set: GroundSet, k):
 
     objective.distortion = 1
     val, _ = objective.evaluate(S)
-    return S, val
+    return S, val, objective.num_queries
 
 
 def DP_greedy(objective: MSDObjective, ground_set: GroundSet, k, eps, private):
@@ -75,6 +76,7 @@ def DP_greedy(objective: MSDObjective, ground_set: GroundSet, k, eps, private):
         current_val: The final objective value
     """
     objective.distortion = 0.5
+    objective.num_queries = 0
     S = []
     # Initialize state: f(empty_set) = 0
     current_val, auxiliary = objective.evaluate(S)
@@ -88,9 +90,8 @@ def DP_greedy(objective: MSDObjective, ground_set: GroundSet, k, eps, private):
             e: objective.marginal_gain(e, S, auxiliary)[0]
             for e in remaining_elements
         }
-
         best_e = exp_mech(candidates_scores, eps, objective.sensitivity, private=private)
-        best_gain, best_aux = objective.marginal_gain(best_e, S, auxiliary)
+        best_gain, best_aux = objective.marginal_gain(best_e, S, auxiliary, charge=False)
         current_val += best_gain
         auxiliary = best_aux
         S.append(best_e)
@@ -99,8 +100,8 @@ def DP_greedy(objective: MSDObjective, ground_set: GroundSet, k, eps, private):
         print(f"Iteration {i + 1}: Added {best_e}, Total Value: {current_val:.4f}")
 
     objective.distortion = 1
-    val,_ = objective.evaluate(S)
-    return S, val
+    val, _ = objective.evaluate(S)
+    return S, val, objective.num_queries
 
 def DP_sample_greedy(objective: MSDObjective, ground_set: GroundSet, k, eps, private, oblivious, gamma):
     """
@@ -120,6 +121,8 @@ def DP_sample_greedy(objective: MSDObjective, ground_set: GroundSet, k, eps, pri
         current_val: The final objective value
     """
     objective.distortion = 1 if oblivious else 1/(2+gamma)
+    objective.num_queries = 0
+
     S = []
     # Initialize state: f(empty_set) = 0
     current_val, auxiliary = objective.evaluate(S)
@@ -131,7 +134,7 @@ def DP_sample_greedy(objective: MSDObjective, ground_set: GroundSet, k, eps, pri
 
         # subsample
         g_i = min(k, ground_set.nb_elements-i+1) if not oblivious else k-i+1
-        sample_size = int(np.ceil(len(remaining_elements) * min( np.log(1/gamma)/g_i ,1.0)))
+        sample_size = int(np.ceil(len(remaining_elements) * min( np.log(1/gamma)/g_i, 1.0)))
         sampled_elements = set(random.sample(remaining_elements, sample_size))
 
         candidates_scores = {
@@ -150,7 +153,7 @@ def DP_sample_greedy(objective: MSDObjective, ground_set: GroundSet, k, eps, pri
 
     objective.distortion = 1
     val,_ = objective.evaluate(S)
-    return S, val
+    return S, val, objective.num_queries
 
 
 def random_baseline(objective: MSDObjective, ground_set: GroundSet, k):
