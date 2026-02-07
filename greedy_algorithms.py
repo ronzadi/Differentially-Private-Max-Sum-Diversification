@@ -120,7 +120,7 @@ def DP_sample_greedy(objective: MSDObjective, ground_set: GroundSet, k, eps, pri
         S: The list of selected element indices
         current_val: The final objective value
     """
-    objective.distortion = 1 if oblivious else 1/(2+gamma)
+    objective.distortion = 1 if oblivious else 1/(2-gamma)
     objective.num_queries = 0
 
     S = []

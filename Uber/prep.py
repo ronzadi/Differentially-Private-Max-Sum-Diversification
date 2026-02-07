@@ -120,39 +120,91 @@ class UberOptimizer:
     #     # Clip to the real Manhattan shape
     #     mask = self.is_inside(candidate_pts)
     #     return candidate_pts[mask]
+    import pandas as pd
+    import numpy as np
+    import random
 
     def process_raw_data(self, input_csv, output_csv):
         """
-        Filters Uber data using the Convex Hull and Reservoir Sampling.
+        Filters Uber data using the Manhattan hull and returns exactly n_data points.
         """
-        processed_data = []
-        count = 0
+        all_valid_points = []
 
-        # Chunked reading to save RAM
+        # 1. Collect ALL points that fall inside the polygon
+        print("Filtering points inside hull...")
         for chunk in pd.read_csv(input_csv, chunksize=50000):
-            # Assume Col 1: Lat, Col 2: Lon (Typical for Uber Raw Data)
+            # Taking Lat/Lon columns
             chunk_pts = chunk.iloc[:, [1, 2]].values
 
-            # Vectorized filter check
+            # Filter check
             mask = self.is_inside(chunk_pts)
-            valid_points = chunk_pts[mask]
+            valid_chunk = chunk_pts[mask]
 
-            for pt in valid_points:
-                if len(processed_data) < self.n_data:
-                    processed_data.append(pt)
-                else:
-                    # Reservoir Sampling logic
-                    prob = self.n_data / (count + 1)
-                    if random.random() < prob:
-                        idx = random.randint(0, self.n_data - 1)
-                        processed_data[idx] = pt
-                count += 1
+            if len(valid_chunk) > 0:
+                all_valid_points.append(valid_chunk)
 
-        # Save the filtered, sampled data
-        random.shuffle(processed_data)
+        # Flatten the list of arrays into one large matrix
+        if not all_valid_points:
+            raise ValueError("No points found inside the provided hull.")
+
+        all_valid_points = np.vstack(all_valid_points)
+        total_found = len(all_valid_points)
+        print(f"Found {total_found} valid points in total.")
+
+        # 2. Select EXACTLY self.n_data points
+        if total_found >= self.n_data:
+            # Use random indices to get exactly the count requested
+            indices = np.random.choice(total_found, int(self.n_data), replace=False)
+            processed_data = all_valid_points[indices]
+        else:
+            # If we have fewer than n_data, we take everything
+            print(f"Warning: Only {total_found} points found. Returning all.")
+            processed_data = all_valid_points
+
+        # 3. Save and return
         df_out = pd.DataFrame(processed_data, columns=['lat', 'lon'])
         df_out.to_csv(output_csv, index=False)
+
         return df_out.values
+
+    def read_from_file(self, output_csv):
+
+        df = pd.read_csv(output_csv)
+        return df.values
+
+
+    # def process_raw_data(self, input_csv, output_csv):
+    #     """
+    #     Filters Uber data using the Convex Hull and Reservoir Sampling.
+    #     """
+    #     processed_data = []
+    #     count = 0
+    #
+    #     # Chunked reading to save RAM
+    #     for chunk in pd.read_csv(input_csv, chunksize=50000):
+    #         # Assume Col 1: Lat, Col 2: Lon (Typical for Uber Raw Data)
+    #         chunk_pts = chunk.iloc[:, [1, 2]].values
+    #
+    #         # Vectorized filter check
+    #         mask = self.is_inside(chunk_pts)
+    #         valid_points = chunk_pts[mask]
+    #
+    #         for pt in valid_points:
+    #             if len(processed_data) < self.n_data:
+    #                 processed_data.append(pt)
+    #             else:
+    #                 # Reservoir Sampling logic
+    #                 prob = self.n_data / (count + 1)
+    #                 if random.random() < prob:
+    #                     idx = random.randint(0, self.n_data - 1)
+    #                     processed_data[idx] = pt
+    #             count += 1
+    #
+    #     # Save the filtered, sampled data
+    #     random.shuffle(processed_data)
+    #     df_out = pd.DataFrame(processed_data, columns=['lat', 'lon'])
+    #     df_out.to_csv(output_csv, index=False)
+    #     return df_out.values
 
     def evaluate_function(self, S_indices, grid_coords, passenger_coords):
         """
