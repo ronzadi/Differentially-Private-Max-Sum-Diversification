@@ -51,7 +51,7 @@ if __name__ == "__main__":
     reviews_path = "../datasets/amazon/Health_and_Household_1_percent.csv"
     # Assuming columns are: user_id, parent_asin, rating, timestamp
     reviews_df = pd.read_csv(reviews_path, header=None, names=['user_id', 'parent_asin', 'rating', 'timestamp'])
-    reviews_df['rating']= reviews_df['rating']/5.0
+    reviews_df['rating'] = reviews_df['rating']/5.0
 
     # 2. Load Metadata (The stable file we created)
     meta_path = "../datasets/amazon/meta_Health_and_Household.csv"
