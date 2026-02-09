@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import folium
 from prep import UberOptimizer
-from classes import MSDFacilityLocation, GroundSet
+from classes import MSDUberObjective, GroundSet
 from greedy_algorithms import greedy, DP_greedy, DP_sample_greedy, random_baseline
 
 
@@ -157,7 +157,7 @@ if __name__ == "__main__":
         grid = opt.create_grid(n_locs=config['n_locs'], spurious=config['spurious'])
 
         # 2. Setup Problem Objects
-        obj = MSDFacilityLocation(
+        obj = MSDUberObjective(
             passenger_coords=passengers,
             grid_coords=grid,
             lambda_param=config['lambda'],

@@ -5,7 +5,7 @@ from prep import UberOptimizer
 from greedy_algorithms import greedy, DP_greedy, DP_sample_greedy, random_baseline
 import numpy as np
 import pandas as pd
-from classes import MSDFacilityLocation, GroundSet
+from classes import MSDUberObjective, GroundSet
 import numpy as np
 import pandas as pd
 import folium
@@ -201,7 +201,7 @@ if __name__ == "__main__":
     print(len(grid_coords))
 
     # 3. Setup Objective and GroundSet
-    objective = MSDFacilityLocation(
+    objective = MSDUberObjective(
         passenger_coords=passenger_coords,
         grid_coords=grid_coords,
         lambda_param=lambda_param,

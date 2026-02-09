@@ -30,17 +30,18 @@ def greedy(objective: MSDObjective, ground_set: GroundSet, k):
     for i in range(k):
         best_gain = -float('inf')
         best_e = None
-        best_aux = None
 
         # Scan all available candidates
         for e in remaining_elements:
             # Calculate gain using our memory-efficient logic
-            gain, potential_aux = objective.marginal_gain(e, S, auxiliary)
+            gain, _ = objective.marginal_gain(e, S, auxiliary)
 
             if gain >= best_gain:
                 best_gain = gain
                 best_e = e
-                best_aux = potential_aux
+
+        # ONLY NOW do we copy the array and update the state (Once per K, not per E)
+        auxiliary = objective.add_one_element(best_e, S, auxiliary)
 
         # # If no improvement is possible, stop early
         # if best_e is None or best_gain <= 0:
@@ -49,8 +50,6 @@ def greedy(objective: MSDObjective, ground_set: GroundSet, k):
         # Commit the best choice: update value and the 'snapshot' (auxiliary)
         # Note: We use the already calculated best_aux to avoid re-calculating
         current_val += best_gain
-        auxiliary = best_aux
-
         S.append(best_e)
         remaining_elements.remove(best_e)
 
