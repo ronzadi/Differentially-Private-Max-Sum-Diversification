@@ -56,7 +56,7 @@ def greedy(objective: MSDObjective, ground_set: GroundSet, k):
         print(f"Iteration {i + 1}: Added {best_e}, Total Value: {current_val:.4f}")
 
     objective.distortion = 1
-    val, _ = objective.evaluate(S)
+    val, _ = objective.evaluate(S, distort=False)
     return S, val, objective.num_queries
 
 
@@ -90,16 +90,16 @@ def DP_greedy(objective: MSDObjective, ground_set: GroundSet, k, eps, private):
             for e in remaining_elements
         }
         best_e = exp_mech(candidates_scores, eps, objective.sensitivity, private=private)
-        best_gain, best_aux = objective.marginal_gain(best_e, S, auxiliary, charge=False)
+        best_gain, _ = objective.marginal_gain(best_e, S, auxiliary, charge=False)
+        auxiliary = objective.add_one_element(best_e, S, auxiliary)
         current_val += best_gain
-        auxiliary = best_aux
         S.append(best_e)
         remaining_elements.remove(best_e)
 
         print(f"Iteration {i + 1}: Added {best_e}, Total Value: {current_val:.4f}")
 
     objective.distortion = 1
-    val, _ = objective.evaluate(S)
+    val, _ = objective.evaluate(S, distort=False)
     return S, val, objective.num_queries
 
 def DP_sample_greedy(objective: MSDObjective, ground_set: GroundSet, k, eps, private, oblivious, gamma):
@@ -142,16 +142,16 @@ def DP_sample_greedy(objective: MSDObjective, ground_set: GroundSet, k, eps, pri
         }
 
         best_e = exp_mech(candidates_scores, eps, objective.sensitivity, private=private)
-        best_gain, best_aux = objective.marginal_gain(best_e, S, auxiliary)
+        best_gain, _ = objective.marginal_gain(best_e, S, auxiliary)
         current_val += best_gain
-        auxiliary = best_aux
+        auxiliary = objective.add_one_element(best_e, S, auxiliary)
         S.append(best_e)
         remaining_elements.remove(best_e)
 
         print(f"Iteration {i + 1}: Added {best_e}, Total Value: {current_val:.4f}")
 
     objective.distortion = 1
-    val,_ = objective.evaluate(S)
+    val, _ = objective.evaluate(S, distort=False)
     return S, val, objective.num_queries
 
 
@@ -178,6 +178,6 @@ def random_baseline(objective: MSDObjective, ground_set: GroundSet, k):
 
     # 3. Perform a full evaluation of the random set
     # evaluate returns (value, auxiliary); we only need the value
-    final_val, _ = objective.evaluate(S)
-
+    final_val, _ = objective.evaluate(S, distort=False)
+    print(f"Total Value: {final_val:.4f}")
     return S, final_val

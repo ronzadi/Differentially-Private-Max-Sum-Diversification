@@ -22,7 +22,7 @@ class MSDObjective(ABC):
     """
 
     @abstractmethod
-    def evaluate(self, S):
+    def evaluate(self, S, distort=False):
         """
         Calculates f(S).
         Returns: (value, auxiliary)
@@ -234,7 +234,7 @@ class MSDAmazonObjective(MSDObjective):
 
         return new_max_ratings, current_dist_sum + dist_to_existing
 
-    def evaluate(self, S):
+    def evaluate(self, S, distort=True):
         """
         Calculates f(S) from scratch.
         Returns: (value, auxiliary) where auxiliary is (max_ratings_vec, current_dist_sum)
@@ -261,5 +261,6 @@ class MSDAmazonObjective(MSDObjective):
 
         avg_dist = (dist_sum / self.num_pairs) if self.num_pairs > 0 else 0.0
 
+        distort = self.distortion if distort else 1
         total_val = (1 - self.lambda_param) * self.distortion * relevance_term + (self.lambda_param * avg_dist)
         return total_val, (max_ratings, dist_sum)

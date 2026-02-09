@@ -63,15 +63,16 @@ if __name__ == "__main__":
     product_categories_dict = {}
     for _, row in meta_df.iterrows():
         cat_str = str(row['categories'])
+        main_cat = str(row['main_category'])
         # Clean the string and turn into a set of words/tags
-        product_categories_dict[row['parent_asin']] = set(cat_str.lower().split())
+        product_categories_dict[row['parent_asin']] = set(cat_str.lower().split()) | set(main_cat)
 
     # 4. Define the Ground Set (The actual product IDs available to pick from)
     all_asins = list(meta_df['parent_asin'].unique())
     g_set = GroundSet(elements=all_asins)
 
     param_grid = [
-        {'k': 3, 'eps': 0.1, 'lambda': 0.2, 'private': False, 'gamma': 0.1},
+        {'k': 5, 'eps': 0.1, 'lambda': 0, 'private': False, 'gamma': 0.1},
         # {'k': 8, 'eps': 0.1, 'lambda': 0.2, 'private': True, 'gamma': 0.1},
         # {'k': 8, 'eps': 0.4, 'lambda': 0.2, 'private': True, 'gamma': 0.1},
         # {'k': 8, 'eps': 1.0, 'lambda': 0.2, 'private': True, 'gamma': 0.1},
@@ -91,4 +92,4 @@ if __name__ == "__main__":
             distortion=1.0,
         )
 
-        run_amazon_experiment(obj, g_set, config, rep=3)  # Reduced reps for speed
+        run_amazon_experiment(obj, g_set, config, rep=1)  # Reduced reps for speed
