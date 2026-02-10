@@ -1,5 +1,7 @@
 import math
 import os
+import time
+
 import pandas as pd
 import numpy as np
 from classes import GroundSet, MSDAmazonObjective
@@ -27,19 +29,31 @@ def run_amazon_experiment(objective, ground_set, params, rep):
     for i in range(rep):
         print(f"\n--- Repetition {i + 1}/{rep} ---")
         for name, func, args in algorithms:
-            print(f"Running {name}...")
+            # --- Timing Start ---
+            start_time = time.time()
             res = func(*args)
-            selected, value = res[0], res[1]
+            end_time = time.time()
+            duration = end_time - start_time
+            # --- Timing End ---
+            selected, value, rel, div = res[0], res[1], res[2], res[3]
             queries = res[2] if len(res) > 2 else 0
 
             results.append({
-                'alg': name, 'k': k, 'lambda_param': lam, 'eps': eps,
-                'rep': i, 'value': value, 'queries': queries
+                'alg': name,
+                'k': k,
+                'lambda_param': lam,
+                'eps': eps,
+                'rep': i,
+                'value': value,
+                'relevance': rel,
+                'diversity': div,
+                'queries': queries,
+                'time_sec': round(duration, 4)  # Added time tracking
             })
             final_selected[name] = selected
 
     df_results = pd.DataFrame(results)
-    output_file = "Amazon_Master_Results.csv"
+    output_file = "results/Amazon_Master_Results.csv"
     df_results.to_csv(output_file, mode='a', index=False, header=not os.path.isfile(output_file))
 
     return final_selected.get('DPGreedy')
@@ -69,12 +83,36 @@ if __name__ == "__main__":
     g_set = GroundSet(elements=all_asins)
 
     param_grid = [
-        # {'k': 4, 'eps': 0.1, 'lambda': 0.05, 'private': False, 'gamma': 0.1},
-        {'k': 15, 'eps': 0.1, 'lambda': 0, 'private': False, 'gamma': 0.1},
-        # {'k': 8, 'eps': 0.1, 'lambda': 0.2, 'private': True, 'gamma': 0.1},
-        # {'k': 8, 'eps': 0.4, 'lambda': 0.2, 'private': True, 'gamma': 0.1},
-        # {'k': 8, 'eps': 1.0, 'lambda': 0.2, 'private': True, 'gamma': 0.1},
-        # {'k': 8, 'eps': 0.1, 'lambda': 0.8, 'private': True, 'gamma': 0.1},
+        {'k': 20, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
+        # {'k': 20, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
+        {'k': 40, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
+        # {'k': 40, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
+        {'k': 60, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
+        # {'k': 70, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
+        {'k': 80, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
+        # {'k': 90, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
+        {'k': 100, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
+        ###
+        # {'k': 10, 'eps': 0.01, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
+        {'k': 20, 'eps': 0.02, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
+        # {'k'2 10, 'eps': 0.03, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
+        {'k': 20, 'eps': 0.04, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
+        # {'k'2 10, 'eps': 0.05, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
+        {'k': 20, 'eps': 0.06, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
+        # {'k'2 10, 'eps': 0.07, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
+        {'k': 20, 'eps': 0.08, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
+        # {'k'2 10, 'eps': 0.09, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
+        {'k': 20, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
+
+        # {'k': 10, 'eps': 0.01, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
+        {'k': 20, 'eps': 0.1, 'lambda': 0.2, 'private': False, 'gamma': 0.1},
+        # {'k'2 10, 'eps': 0.03, 'lambda': .15, 'private': False, 'gamma': 0.1},
+        {'k': 20, 'eps': 0.1, 'lambda': 0.4, 'private': False, 'gamma': 0.1},
+        # {'k'2 10, 'eps': 0.05, 'lambda': .15, 'private': False, 'gamma': 0.1},
+        {'k': 20, 'eps': 0.1, 'lambda': 0.6, 'private': False, 'gamma': 0.1},
+        # {'k'2 10, 'eps': 0.07, 'lambda': .15, 'private': False, 'gamma': 0.1},
+        {'k': 20, 'eps': 0.1, 'lambda': 0.8, 'private': False, 'gamma': 0.1},
+        # {'k'2 10, 'eps': 0.09, 'lambda': .15, 'private': False, 'gamma': 0.1},
     ]
 
     for config in param_grid:
