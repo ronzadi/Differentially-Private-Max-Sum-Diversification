@@ -47,32 +47,30 @@ def run_amazon_experiment(objective, ground_set, params, rep):
 
 # --- Execution ---
 if __name__ == "__main__":
-    # 1. Load Reviews (1% sample)
-    reviews_path = "../datasets/amazon/Health_and_Household_1_percent.csv"
-    # Assuming columns are: user_id, parent_asin, rating, timestamp
+    reviews_path = "../datasets/amazon/reviews_Health_and_Household.csv"
     reviews_df = pd.read_csv(reviews_path, header=None, names=['user_id', 'parent_asin', 'rating', 'timestamp'])
     reviews_df['rating'] = reviews_df['rating']/5.0
 
-    # 2. Load Metadata (The stable file we created)
     meta_path = "../datasets/amazon/meta_Health_and_Household.csv"
     meta_df = pd.read_csv(meta_path, sep='\x1f', low_memory=False)
 
-    # 3. Pre-process Categories into a Dictionary of Sets {asin: {cat1, cat2}}
-    # This is crucial for the Jaccard distance logic
     print("Preparing category lookup...")
-    product_categories_dict = {}
-    for _, row in meta_df.iterrows():
-        cat_str = str(row['categories'])
-        main_cat = str(row['main_category'])
-        # Clean the string and turn into a set of words/tags
-        product_categories_dict[row['parent_asin']] = set(cat_str.lower().split()) | set(main_cat)
+    product_categories_dict = (
+        meta_df.set_index('parent_asin')['categories']
+        .astype(str)
+        .str.lower()
+        .str.split()
+        .apply(set)
+        .to_dict()
+    )
 
     # 4. Define the Ground Set (The actual product IDs available to pick from)
     all_asins = list(meta_df['parent_asin'].unique())
     g_set = GroundSet(elements=all_asins)
 
     param_grid = [
-        {'k': 5, 'eps': 0.1, 'lambda': 0, 'private': False, 'gamma': 0.1},
+        # {'k': 4, 'eps': 0.1, 'lambda': 0.05, 'private': False, 'gamma': 0.1},
+        {'k': 15, 'eps': 0.1, 'lambda': 0, 'private': False, 'gamma': 0.1},
         # {'k': 8, 'eps': 0.1, 'lambda': 0.2, 'private': True, 'gamma': 0.1},
         # {'k': 8, 'eps': 0.4, 'lambda': 0.2, 'private': True, 'gamma': 0.1},
         # {'k': 8, 'eps': 1.0, 'lambda': 0.2, 'private': True, 'gamma': 0.1},
