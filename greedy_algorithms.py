@@ -53,7 +53,7 @@ def greedy(objective: MSDObjective, ground_set: GroundSet, k):
         S.append(best_e)
         remaining_elements.remove(best_e)
 
-        print(f"Iteration {i + 1}: Added {best_e}, Total Value: {current_val:.4f}")
+        # print(f"Iteration {i + 1}: Added {best_e}, Total Value: {current_val:.4f}")
 
     objective.distortion = 1
     val, coverage, dist, _ = objective.evaluate(S, distort=False)
@@ -96,7 +96,7 @@ def DP_greedy(objective: MSDObjective, ground_set: GroundSet, k, eps, private):
         S.append(best_e)
         remaining_elements.remove(best_e)
 
-        print(f"Iteration {i + 1}: Added {best_e}, Total Value: {current_val:.4f}")
+        # print(f"Iteration {i + 1}: Added {best_e}, Total Value: {current_val:.4f}")
 
     objective.distortion = 1
     val, coverage, dist, _ = objective.evaluate(S, distort=False)
@@ -150,7 +150,7 @@ def DP_sample_greedy(objective: MSDObjective, ground_set: GroundSet, k, eps, pri
         S.append(best_e)
         remaining_elements.remove(best_e)
 
-        print(f"Iteration {i + 1}: Added {best_e}, Total Value: {current_val:.4f}")
+        # print(f"Iteration {i + 1}: Added {best_e}, Total Value: {current_val:.4f}")
 
     objective.distortion = 1
     val, coverage, dist, _ = objective.evaluate(S, distort=False)
@@ -182,6 +182,6 @@ def random_baseline(objective: MSDObjective, ground_set: GroundSet, k):
 
     # 3. Perform a full evaluation of the random set
     # evaluate returns (value, auxiliary); we only need the value
-    val, coverage, dist, _ = objective.evaluate(S, distort=False)
-    print(f"Total Value: {val:.4f}, Coverage: {coverage:.4f}, Diversity: {dist:.4f}")
-    return S, val
+    val, rel, div, _ = objective.evaluate(S, distort=False)
+    print(f"Total Value: {val:.4f}, Coverage: {rel:.4f}, Diversity: {div:.4f}")
+    return S, val, rel, div
