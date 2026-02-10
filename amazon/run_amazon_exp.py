@@ -36,7 +36,7 @@ def run_amazon_experiment(objective, ground_set, params, rep):
             duration = end_time - start_time
             # --- Timing End ---
             selected, value, rel, div = res[0], res[1], res[2], res[3]
-            queries = res[2] if len(res) > 2 else 0
+            queries = res[4] if len(res) > 4 else 0
 
             results.append({
                 'alg': name,
@@ -66,7 +66,7 @@ if __name__ == "__main__":
     reviews_df['rating'] = reviews_df['rating']/5.0
 
     meta_path = "../datasets/amazon/meta_Health_and_Household.csv"
-    meta_df = pd.read_csv(meta_path, sep='\x1f', low_memory=False)
+    meta_df = pd.read_csv(meta_path, sep='\x1f', low_memory=False).sort_values(by='rating_number', ascending=False).head(1000)
 
     print("Preparing category lookup...")
     product_categories_dict = (
@@ -82,36 +82,45 @@ if __name__ == "__main__":
     all_asins = list(meta_df['parent_asin'].unique())
     g_set = GroundSet(elements=all_asins)
 
+    obj = MSDAmazonObjective(
+        reviews_df=reviews_df,
+        product_categories=product_categories_dict,
+        lambda_param=0.15,
+        k=20,
+        distortion=1.0,
+    )
+
     param_grid = [
+        # {'k': 5, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
         {'k': 20, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
-        # {'k': 20, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
+        # {'k': 10, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
         {'k': 40, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
-        # {'k': 40, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
+        # {'k': 15, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
         {'k': 60, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
-        # {'k': 70, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
+        # {'k': 25, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
         {'k': 80, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
-        # {'k': 90, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
         {'k': 100, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
+        # {'k': 30, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
         ###
         # {'k': 10, 'eps': 0.01, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
-        {'k': 20, 'eps': 0.02, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
+        {'k': 10, 'eps': 0.02, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
         # {'k'2 10, 'eps': 0.03, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
-        {'k': 20, 'eps': 0.04, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
+        {'k': 10, 'eps': 0.04, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
         # {'k'2 10, 'eps': 0.05, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
-        {'k': 20, 'eps': 0.06, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
+        {'k': 10, 'eps': 0.06, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
         # {'k'2 10, 'eps': 0.07, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
-        {'k': 20, 'eps': 0.08, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
+        {'k': 10, 'eps': 0.08, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
         # {'k'2 10, 'eps': 0.09, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
-        {'k': 20, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
+        {'k': 10, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
 
         # {'k': 10, 'eps': 0.01, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
-        {'k': 20, 'eps': 0.1, 'lambda': 0.2, 'private': False, 'gamma': 0.1},
+        {'k': 10, 'eps': 0.1, 'lambda': 0.2, 'private': False, 'gamma': 0.1},
         # {'k'2 10, 'eps': 0.03, 'lambda': .15, 'private': False, 'gamma': 0.1},
-        {'k': 20, 'eps': 0.1, 'lambda': 0.4, 'private': False, 'gamma': 0.1},
+        {'k': 10, 'eps': 0.1, 'lambda': 0.4, 'private': False, 'gamma': 0.1},
         # {'k'2 10, 'eps': 0.05, 'lambda': .15, 'private': False, 'gamma': 0.1},
-        {'k': 20, 'eps': 0.1, 'lambda': 0.6, 'private': False, 'gamma': 0.1},
+        {'k': 10, 'eps': 0.1, 'lambda': 0.6, 'private': False, 'gamma': 0.1},
         # {'k'2 10, 'eps': 0.07, 'lambda': .15, 'private': False, 'gamma': 0.1},
-        {'k': 20, 'eps': 0.1, 'lambda': 0.8, 'private': False, 'gamma': 0.1},
+        {'k': 10, 'eps': 0.1, 'lambda': 0.8, 'private': False, 'gamma': 0.1},
         # {'k'2 10, 'eps': 0.09, 'lambda': .15, 'private': False, 'gamma': 0.1},
     ]
 
@@ -120,12 +129,14 @@ if __name__ == "__main__":
             f"\n================ CONFIG: k={config['k']}, eps={config['eps']}, lam={config['lambda']} ================")
 
         # Initialize Objective with processed data
-        obj = MSDAmazonObjective(
-            reviews_df=reviews_df,
-            product_categories=product_categories_dict,
-            lambda_param=config['lambda'],
-            k=config['k'],
-            distortion=1.0,
-        )
+        # obj = MSDAmazonObjective(
+        #     reviews_df=reviews_df,
+        #     product_categories=product_categories_dict,
+        #     lambda_param=config['lambda'],
+        #     k=config['k'],
+        #     distortion=1.0,
+        # )
+        obj.lambda_param = config['lambda']
+        obj.set_k(config['k'])
 
         run_amazon_experiment(obj, g_set, config, rep=1)  # Reduced reps for speed
