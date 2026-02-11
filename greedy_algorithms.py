@@ -57,6 +57,7 @@ def greedy(objective: MSDObjective, ground_set: GroundSet, k):
 
     objective.distortion = 1
     val, coverage, dist, _ = objective.evaluate(S, distort=False)
+    print(f"Total Value: {val:.4f}, Coverage: {coverage:.4f}, Diversity: {dist:.4f}")
     return S, val, coverage, dist, objective.num_queries
 
 
