@@ -5,6 +5,7 @@ import numpy as np
 from classes import MSDObjective, GroundSet
 from dp_mechanisms import exp_mech
 
+
 def greedy(objective: MSDObjective, ground_set: GroundSet, k):
     """
     Non-private Distorted Greedy Algorithm (Borodin et al.).

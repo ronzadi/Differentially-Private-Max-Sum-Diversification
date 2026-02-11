@@ -86,14 +86,15 @@ class MSDUberObjective(MSDObjective):  # Inherits from MSDObjective if required 
         # Return 1 - normalized_dist (capped at 0)
         return np.maximum(0, 1.0 - normalized_dists)
 
-    def evaluate(self, S):
+    def evaluate(self, S, distort=True):
         """
-        Full evaluation of a set S. Required by the Greedy algorithm to initialize.
+        Full evaluation of a set S for Uber.
+        Now consistent with Amazon signature and distortion logic.
         """
         self.num_queries += 1
         if not S:
-            # Auxiliary state: (max_similarities_per_passenger, sum_of_distances_between_hubs)
-            return 0.0, (np.zeros(self.num_passengers), 0.0)
+            # Matches Amazon: returns 4 values and an empty state tuple
+            return 0.0, 0.0, 0.0, (np.zeros(self.num_passengers), 0.0)
 
         # 1. Coverage (Facility Location) term
         max_sims = np.zeros(self.num_passengers)
@@ -113,10 +114,45 @@ class MSDUberObjective(MSDObjective):  # Inherits from MSDObjective if required 
 
         avg_dist = (dist_sum / self.num_pairs) if self.num_pairs > 0 else 0.0
 
-        # Weighted combination
-        total_val = (1 - self.lambda_param) * self.distortion * coverage_term + (self.lambda_param * avg_dist)
+        # 3. Distortion Logic (Matching Amazon's approach)
+        # This allows the algorithm to search with distortion (0.5)
+        # but evaluate final results with distortion (1.0)
+        d_factor = self.distortion if distort else 1.0
+
+        total_val = (1 - self.lambda_param) * d_factor * coverage_term + (self.lambda_param * avg_dist)
 
         return total_val, coverage_term, avg_dist, (max_sims, dist_sum)
+    # def evaluate(self, S):
+    #     """
+    #     Full evaluation of a set S. Required by the Greedy algorithm to initialize.
+    #     """
+    #     self.num_queries += 1
+    #     if not S:
+    #         # Auxiliary state: (max_similarities_per_passenger, sum_of_distances_between_hubs)
+    #         return 0.0, 0.0, 0.0, (np.zeros(self.num_passengers), 0.0)
+    #
+    #     # 1. Coverage (Facility Location) term
+    #     max_sims = np.zeros(self.num_passengers)
+    #     for idx in S:
+    #         max_sims = np.maximum(max_sims, self._get_similarity_row(idx))
+    #
+    #     coverage_term = np.sum(max_sims) / self.num_passengers
+    #
+    #     # 2. Diversity (Max-Sum) term
+    #     dist_sum = 0.0
+    #     n_S = len(S)
+    #     if n_S > 1:
+    #         for i in range(n_S):
+    #             for j in range(i + 1, n_S):
+    #                 diff = np.abs(self.grid[S[i]] - self.grid[S[j]])
+    #                 dist_sum += np.sum(diff) / self.m_constant
+    #
+    #     avg_dist = (dist_sum / self.num_pairs) if self.num_pairs > 0 else 0.0
+    #
+    #     # Weighted combination
+    #     total_val = (1 - self.lambda_param) * self.distortion * coverage_term + (self.lambda_param * avg_dist)
+    #
+    #     return total_val, coverage_term, avg_dist, (max_sims, dist_sum)
 
     def marginal_gain(self, e, S, auxiliary, charge=True):
         """
@@ -146,8 +182,31 @@ class MSDUberObjective(MSDObjective):  # Inherits from MSDObjective if required 
         # Total gain calculation
         total_gain = (1 - self.lambda_param) * self.distortion * coverage_gain + (self.lambda_param * diversity_gain)
 
-        return total_gain, (new_max_sims, new_dist_sum)
+        # return total_gain, (new_max_sims, new_dist_sum)
+        return total_gain, None
 
+    def add_one_element(self, e, S, auxiliary):
+        """
+        Updates the auxiliary state for Uber (max_sims and dist_sum).
+        """
+        max_sims, current_dist_sum = auxiliary
+
+        # 1. Update Coverage State (Max Similarities)
+        sim_e = self._get_similarity_row(e)
+        new_max_sims = np.maximum(max_sims, sim_e)
+
+        # 2. Update Diversity State (Pairwise Distances)
+        dist_to_existing = 0.0
+        if S:
+            # S must be the set BEFORE e was added
+            hub_diffs = np.abs(self.grid[S] - self.grid[e])
+            dist_to_existing = np.sum(np.sum(hub_diffs, axis=1)) / self.m_constant
+
+        new_dist_sum = current_dist_sum + dist_to_existing
+
+        # Return a single tuple: (np.array, float)
+        # Matches Amazon's (dict, float)
+        return (new_max_sims, new_dist_sum)
 
 
 class MSDAmazonObjective(MSDObjective):
