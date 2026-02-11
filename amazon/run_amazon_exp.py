@@ -13,7 +13,6 @@ def run_amazon_experiment(objective, ground_set, params, rep):
     results = []
     k, eps, p, lam, g = params['k'], params['eps'], params['private'], params['lambda'], params['gamma']
 
-    # Sensitivity for Amazon Ratings is usually the max rating (e.g., 5.0) / num_users
     delta_target = 1 / (objective.num_users ** 1.5)
     eps_0 = get_best_eps_0(eps_target=eps, delta_target=delta_target, k=k)
 
@@ -61,12 +60,20 @@ def run_amazon_experiment(objective, ground_set, params, rep):
 
 # --- Execution ---
 if __name__ == "__main__":
-    reviews_path = "../datasets/amazon/reviews_Health_and_Household.csv"
+    reviews_path = "../datasets/amazon/FULL_Health_and_Household_Top10k_Dense.csv"
     reviews_df = pd.read_csv(reviews_path, header=None, names=['user_id', 'parent_asin', 'rating', 'timestamp'])
     reviews_df['rating'] = reviews_df['rating']/5.0
 
-    meta_path = "../datasets/amazon/meta_Health_and_Household.csv"
+    meta_path = "../datasets/amazon/FULL_meta_Health_and_Household_top10k.csv"
     meta_df = pd.read_csv(meta_path, sep='\x1f', low_memory=False).sort_values(by='rating_number', ascending=False).head(1000)
+
+    # 1. Get the list of ASINs from the filtered meta_df
+    selected_asins = meta_df['parent_asin'].unique()
+
+    # 2. Filter reviews_df to only include those ASINs
+    reviews_df = reviews_df[reviews_df['parent_asin'].isin(selected_asins)]
+    print('num reviews: ', len(reviews_df))
+    print('num users: ', len(reviews_df['user_id'].unique()))
 
     print("Preparing category lookup...")
     product_categories_dict = (
@@ -91,37 +98,42 @@ if __name__ == "__main__":
     )
 
     param_grid = [
-        # {'k': 5, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
-        {'k': 20, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
-        # {'k': 10, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
-        {'k': 40, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
-        # {'k': 15, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
-        {'k': 60, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
-        # {'k': 25, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
-        {'k': 80, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
-        {'k': 100, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
-        # {'k': 30, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
+        # {'k': 5, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
+        {'k': 20, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
+        # {'k': 10, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
+        {'k': 40, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
+        # {'k': 15, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
+        {'k': 60, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
+        # {'k': 25, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
+        {'k': 80, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
+        {'k': 100, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
+        # {'k': 30, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
         ###
-        # {'k': 10, 'eps': 0.01, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
-        {'k': 15, 'eps': 0.02, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
-        # {'k'2 10, 'eps': 0.03, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
-        {'k': 15, 'eps': 0.04, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
-        # {'k'2 10, 'eps': 0.05, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
-        {'k': 15, 'eps': 0.06, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
-        # {'k'2 10, 'eps': 0.07, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
-        {'k': 15, 'eps': 0.08, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
-        # {'k'2 10, 'eps': 0.09, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
-        {'k': 15, 'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
+        # {'k': 10, 'eps': 0.01, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
+        {'k': 15, 'eps': 0.02, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
+        # {'k'2 10, 'eps': 0.03, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
+        {'k': 15, 'eps': 0.04, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
+        # {'k'2 10, 'eps': 0.05, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
+        {'k': 15, 'eps': 0.06, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
+        # {'k'2 10, 'eps': 0.07, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
+        {'k': 15, 'eps': 0.08, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
+        # {'k'2 10, 'eps': 0.09, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
+        {'k': 15, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
+        {'k': 15, 'eps': 0.2, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
+        {'k': 15, 'eps': 0.4, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
+        {'k': 15, 'eps': 0.6, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
+        {'k': 15, 'eps': 0.8, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
+        {'k': 15, 'eps': 1, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
 
-        # {'k': 10, 'eps': 0.01, 'lambda': 0.15, 'private': False, 'gamma': 0.1},
-        {'k': 15, 'eps': 0.1, 'lambda': 0.2, 'private': False, 'gamma': 0.1},
-        # {'k'2 10, 'eps': 0.03, 'lambda': .15, 'private': False, 'gamma': 0.1},
-        {'k': 15, 'eps': 0.1, 'lambda': 0.4, 'private': False, 'gamma': 0.1},
-        # {'k'2 10, 'eps': 0.05, 'lambda': .15, 'private': False, 'gamma': 0.1},
-        {'k': 15, 'eps': 0.1, 'lambda': 0.6, 'private': False, 'gamma': 0.1},
-        # {'k'2 10, 'eps': 0.07, 'lambda': .15, 'private': False, 'gamma': 0.1},
-        {'k': 15, 'eps': 0.1, 'lambda': 0.8, 'private': False, 'gamma': 0.1},
-        # {'k'2 10, 'eps': 0.09, 'lambda': .15, 'private': False, 'gamma': 0.1},
+        # {'k': 10, 'eps': 0.01, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
+        {'k': 15, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
+        # {'k'2 10, 'eps': 0.03, 'lambda': .15, 'private': True, 'gamma': 0.1},
+        {'k': 15, 'eps': 0.1, 'lambda': 0.3, 'private': True, 'gamma': 0.1},
+        # {'k'2 10, 'eps': 0.05, 'lambda': .15, 'private': True, 'gamma': 0.1},
+        {'k': 15, 'eps': 0.1, 'lambda': 0.5, 'private': True, 'gamma': 0.1},
+        # {'k'2 10, 'eps': 0.07, 'lambda': .15, 'private': True, 'gamma': 0.1},
+        {'k': 15, 'eps': 0.1, 'lambda': 0.7, 'private': True, 'gamma': 0.1},
+        # {'k'2 10, 'eps': 0.09, 'lambda': .15, 'private': True, 'gamma': 0.1},
     ]
 
     for config in param_grid:
@@ -140,3 +152,5 @@ if __name__ == "__main__":
         obj.set_k(config['k'])
 
         run_amazon_experiment(obj, g_set, config, rep=1)  # Reduced reps for speed
+
+
