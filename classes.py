@@ -42,8 +42,7 @@ class MSDObjective(ABC):
         A default implementation for adding an element.
        use this to update state after a selection.
         """
-        gain, new_auxiliary = self.marginal_gain(e, S, auxiliary)
-        return gain, new_auxiliary
+        pass
 
 
 
@@ -159,9 +158,11 @@ class MSDAmazonObjective(MSDObjective):
 
         # Group ratings by product: {asin: [(user_id, rating), ...]}
         # Note: We store the actual user_id now, no need for an integer map
-        self.ratings_lookup = defaultdict(list)
-        for _, row in reviews_df.iterrows():
-            self.ratings_lookup[row['parent_asin']].append((row['user_id'], row['rating']))
+        self.ratings_lookup = (
+            reviews_df.groupby('parent_asin')[['user_id', 'rating']]
+            .apply(lambda x: list(map(tuple, x.values)))
+            .to_dict()
+        )
 
         self.categories = product_categories  # Dict: asin -> set()
         self.lambda_param = lambda_param
@@ -170,9 +171,11 @@ class MSDAmazonObjective(MSDObjective):
         self.num_pairs = (k * (k - 1)) / 2 if k > 1 else 1
         self.num_queries = 0
 
-        # Sensitivity based on max rating (usually 5) / N
-        # If your ratings are normalized to [0,1], use 1/N
-        self.sensitivity = 5.0 / self.num_users
+        self.sensitivity = 1 / self.num_users  # Decomposable objective: \sum_{x\in D} f_x where f_x:2^V -> [0,1].
+
+    def set_k(self, new_k):
+        self.k = new_k
+        self.num_pairs = (new_k * (new_k - 1)) / 2 if new_k > 1 else 1
 
     def _jaccard_distance(self, asin1, asin2):
         set1 = self.categories.get(asin1, set())
