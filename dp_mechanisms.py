@@ -29,7 +29,6 @@ def get_best_eps_0(eps_target, delta_target, k, decomposable=True):
     eps_basic = eps_target / k
 
     # 2. Advanced Composition
-    #TODO is it really? why is eps so low?
     term1 = (2 * math.log(1.0 / delta_target)) / k
     eps_adv = math.sqrt(term1 + (eps_target / k)) - math.sqrt(term1)
 

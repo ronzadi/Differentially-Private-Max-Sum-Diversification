@@ -8,7 +8,7 @@ from local_search_algorithms import (
     local_search,
     DP_sample_local_search,
     calculate_iterations,
-    DP_sample_local_search_threshold
+    DP_sample_local_search_threshold, random_baseline
 )
 from classes import GroundSet, MSDAmazonObjective
 from greedy_algorithms import greedy
@@ -28,6 +28,8 @@ def run_matroid_experiment(objective, ground_set, partition_map, partition_limit
 
     # Algorithm Suite Definition
     algorithms = [
+        ('RandomBaseline', random_baseline,
+         [objective, ground_set, partition_map, partition_limits, k]),
         ('LocalSearch_Matroid', local_search,
          [objective, ground_set, partition_map, partition_limits, k, g]),
         ('DPSampleLocalSearch', DP_sample_local_search,
@@ -84,7 +86,7 @@ if __name__ == "__main__":
     meta_path = "../datasets/amazon/FULL_meta_Health_and_Household_top10k.csv"
     # Using specific separator and limiting to top 200 items by rating count
     meta_df = pd.read_csv(meta_path, sep='\x1f', low_memory=False)
-    meta_df = meta_df.sort_values(by='rating_number', ascending=False).head(200)
+    meta_df = meta_df.sort_values(by='rating_number', ascending=False).head(100)
 
     # --- 2. Constraint Modeling (Partition Matroid) ---
     # Constraint: One item per 'store'
@@ -116,7 +118,7 @@ if __name__ == "__main__":
     # --- 4. Experimental Parameter Grid ---
     param_grid = [
         # Impact of Cardinality k
-        {'k': 4, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.2},
         {'k': 6, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
         {'k': 8, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
         {'k': 12, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
