@@ -1,19 +1,25 @@
 import os
 import time
 import pandas as pd
-from local_search_algorithms import local_search  # Your updated LS
+
+from dp_mechanisms import get_best_eps_0
+from local_search_algorithms import local_search, DP_sample_local_search, calculate_iterations, \
+    DP_sample_local_search_threshold
 from classes import GroundSet, MSDAmazonObjective
 from greedy_algorithms import greedy
 
 
 def run_matroid_experiment(objective, ground_set, partition_map, partition_limits, params, rep):
     results = []
-    k, lam, gamma = params['k'], params['lambda'], params['gamma']
+    k, eps, p, lam, g = params['k'], params['eps'], params['private'], params['lambda'], params['gamma']
 
-    # We compare the standard Greedy (which might violate store constraints)
-    # vs. the Local Search (which respects the intersection)
+    # Adding both the non-private and the new DP Sample LS to the comparison
     algorithms = [
-        ('LocalSearch_Matroid', local_search, [objective, ground_set, partition_map, partition_limits, k, gamma])
+        ('LocalSearch_Matroid', local_search, [objective, ground_set, partition_map, partition_limits, k, g]),
+        ('DPSampleLocalSearch', DP_sample_local_search,
+         [objective, ground_set, partition_map, partition_limits, k, eps, g, p]),
+        ('DPSampleLocalSearchThreshold', DP_sample_local_search_threshold,
+         [objective, ground_set, partition_map, partition_limits, k, eps, g, p])
     ]
 
     for i in range(rep):
@@ -29,8 +35,10 @@ def run_matroid_experiment(objective, ground_set, partition_map, partition_limit
             results.append({
                 'alg': name,
                 'k': k,
+                'eps': eps,
+                'private': p,
                 'lambda_param': lam,
-                'gamma': gamma,
+                'gamma': g,
                 'rep': i,
                 'value': value,
                 'relevance': rel,
@@ -42,39 +50,37 @@ def run_matroid_experiment(objective, ground_set, partition_map, partition_limit
     df_results = pd.DataFrame(results)
     output_file = "results/Amazon_Matroid_Results.csv"
     df_results.to_csv(output_file, mode='a', index=False, header=not os.path.isfile(output_file))
-    return selected
+    return results
 
 
 if __name__ == "__main__":
     # --- 1. Load Data ---
+    # (Keeping your specific data paths)
     reviews_path = "../datasets/amazon/FULL_Health_and_Household_Top10k_Dense.csv"
     reviews_df = pd.read_csv(reviews_path, header=None, names=['user_id', 'parent_asin', 'rating', 'timestamp'])
     reviews_df['rating'] = reviews_df['rating'] / 5.0
 
     meta_path = "../datasets/amazon/FULL_meta_Health_and_Household_top10k.csv"
     meta_df = pd.read_csv(meta_path, sep='\x1f', low_memory=False).sort_values(by='rating_number',
-                                                                               ascending=False).head(100)
+                                                                               ascending=False).head(200)
 
     # --- 2. Setup the "One Item Per Store" Partition Matroid ---
-    # We treat each store as a partition.
     partition_map = meta_df.set_index('parent_asin')['store'].fillna('Unknown').to_dict()
-
-    # Constraint: At most 1 item per store
     unique_stores = meta_df['store'].fillna('Unknown').unique()
     partition_limits = {store: 1 for store in unique_stores}
 
     # --- 3. Ground Set & Objective ---
     all_asins = list(meta_df['parent_asin'].unique())
+    # 2. Filter reviews_df to only include those ASINs
+    # reviews_df = reviews_df[reviews_df['parent_asin'].isin(all_asins)]
+    print('num reviews: ', len(reviews_df))
+    print('num users: ', len(reviews_df['user_id'].unique()))
+
     g_set = GroundSet(elements=all_asins)
 
-    print("Preparing category lookup...")
     product_categories_dict = (
         meta_df.set_index('parent_asin')['categories']
-        .astype(str)
-        .str.lower()
-        .str.split()
-        .apply(set)
-        .to_dict()
+        .astype(str).str.lower().str.split().apply(set).to_dict()
     )
 
     obj = MSDAmazonObjective(
@@ -82,25 +88,44 @@ if __name__ == "__main__":
         product_categories=product_categories_dict,
         lambda_param=0.15,
         k=20,
-        distortion=0,
+        distortion=1.0,
     )
 
-    # --- 4. Execution Loop ---
+    # --- 4. Parameter Grid ---
     param_grid = [
-        {'k': 5, 'lambda': 0.15, 'gamma': 0.1},
-        {'k': 15, 'lambda': 0.15, 'gamma': 0.1},
-        {'k': 25, 'lambda': 0.15, 'gamma': 0.1},
-        {'k': 35, 'lambda': 0.15, 'gamma': 0.1},
+        {'k': 4, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
+        {'k': 8, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
+        {'k': 12, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
+        # {'k': 14, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
+        # {'k': 16, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
+        # {'k': 18, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
+        # {'k': 20, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
+
+        {'k': 6, 'eps': 0.02, 'lambda': 0.15, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.04, 'lambda': 0.15, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.06, 'lambda': 0.15, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.08, 'lambda': 0.15, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.2, 'lambda': 0.15, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.4, 'lambda': 0.15, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.6, 'lambda': 0.15, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.8, 'lambda': 0.15, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 1.0, 'lambda': 0.15, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.1, 'lambda': 0.3, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.1, 'lambda': 0.5, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.1, 'lambda': 0.7, 'private': True, 'gamma': 0.2},
     ]
 
     for config in param_grid:
-        # Check if k is feasible (k cannot exceed number of unique stores)
         if config['k'] > len(unique_stores):
             print(f"Skipping k={config['k']}: Not enough unique stores.")
             continue
 
-        print(f"\n=== Running: k={config['k']}, gamma={config['gamma']} ===")
-        obj.set_k(config['k'])
+        print(
+            f"\n================ CONFIG: k={config['k']}, eps={config['eps']}, lam={config['lambda']} ================")
         obj.lambda_param = config['lambda']
+        obj.set_k(config['k'])
 
-        run_matroid_experiment(obj, g_set, partition_map, partition_limits, config, rep=1)
+        run_matroid_experiment(obj, g_set, partition_map, partition_limits, config, rep=19)

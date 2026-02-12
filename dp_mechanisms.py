@@ -20,7 +20,8 @@ def exp_mech(candidates_with_scores: Dict[Any, float], eps, sensitivity, private
 
     return arg_max
 
-def get_best_eps_0(eps_target, delta_target, k):
+
+def get_best_eps_0(eps_target, delta_target, k, decomposable=True):
     """
     Calculates Basic, Advanced, and Gupta bounds and selects the maximum epsilon_0.
     """
@@ -28,10 +29,11 @@ def get_best_eps_0(eps_target, delta_target, k):
     eps_basic = eps_target / k
 
     # 2. Advanced Composition
+    #TODO is it really? why is eps so low?
     term1 = (2 * math.log(1.0 / delta_target)) / k
     eps_adv = math.sqrt(term1 + (eps_target / k)) - math.sqrt(term1)
 
     # 3. Gupta Bound (For decomposable objectives)
-    eps_gupta = math.log(1 + eps_target/(3 + math.log(1.0 / delta_target)))
+    eps_gupta = math.log(1 + eps_target/(3 + math.log(1.0 / delta_target))) if decomposable else -1
 
     return max(eps_basic, eps_adv, eps_gupta)
