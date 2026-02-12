@@ -88,17 +88,17 @@ def local_search(objective, ground_set, partition_map, partition_limits, k, gamm
     S = get_initial_set(objective, ground_set, partition_map, partition_limits, k)
     current_val, coverage, dist, _ = objective.evaluate(S, distort=False)
 
+    partition_counts = {p: 0 for p in partition_limits}
+    for e in S:
+        partition_counts[partition_map[e]] += 1
+
     while True:
         swap_values = {}
         S_set = set(S)
-        partition_counts = {p: S.count(e) for e, p in partition_map.items() if
-                            e in S_set}  # Optimization note: simplified for brevity
+        # partition_counts = {p: S.count(e) for e, p in partition_map.items() if
+        #                     e in S_set}  # Optimization note: simplified for brevity
 
         # Recalculate partition counts properly
-        partition_counts = {p: 0 for p in partition_limits}
-        for e in S:
-            partition_counts[partition_map[e]] += 1
-
         for e_out in S:
             p_out_id = partition_map[e_out]
             for e_in in ground_set.elements:
@@ -120,6 +120,9 @@ def local_search(objective, ground_set, partition_map, partition_limits, k, gamm
             e_out, e_in = best_swap
             idx = S.index(e_out)
             S = S[:idx] + S[idx + 1:] + [e_in]
+            # --- UPDATE COUNTS INSTEAD OF RECOMPUTING ---
+            partition_counts[partition_map[e_out]] -= 1
+            partition_counts[partition_map[e_in]] += 1
             current_val, coverage, dist, _ = objective.evaluate(S, distort=False)
             print(f"Committed: {e_out} -> {e_in} | New Val: {current_val:.4f}")
         else:
@@ -135,28 +138,28 @@ def DP_sample_local_search(objective, ground_set, partition_map, partition_limit
     """
     delta_target = 1 / (objective.num_users ** 1.5)
     T = calculate_iterations(k, gamma)
-    eps_0 = get_best_eps_0(eps_target=eps, delta_target=delta_target, k=T, decomposable=False)
+    eps_0 = get_best_eps_0(eps_target=eps/2, delta_target=delta_target, k=T, decomposable=False)
 
     S = get_arbitrary_feasible(ground_set, partition_map, partition_limits, k)
     observed_sets = {tuple(S): objective.evaluate(S, distort=False)[0]}
     sample_size = math.ceil(ground_set.nb_elements / k)
+    partition_counts = {p: 0 for p in partition_limits}
+    for e in S:
+        partition_counts[partition_map[e]] += 1
 
     for it in range(int(T)):
         S_set = set(S)
-        partition_counts = {p: 0 for p in partition_limits}
-        for e in S: partition_counts[partition_map[e]] += 1
-
         feasible_swaps = []
         for e_out in S:
             p_out_id = partition_map[e_out]
             for e_in in ground_set.elements:
                 if e_in in S_set: continue
                 p_in_id = partition_map[e_in]
-                if p_in_id == p_out_id or partition_counts.get(partition_map[e_in], 0) < partition_limits[
-                    partition_map[e_in]]:
+                if p_in_id == p_out_id or partition_counts.get(p_in_id, 0) < partition_limits[p_in_id]:
                     feasible_swaps.append((e_out, e_in))
 
-        if not feasible_swaps: break
+        if not feasible_swaps:
+            break
 
         sampled_keys = random.sample(feasible_swaps, min(len(feasible_swaps), sample_size))
         sampled_swap_values = {}
@@ -169,11 +172,14 @@ def DP_sample_local_search(objective, ground_set, partition_map, partition_limit
         e_out, e_in = best_swap
         idx = S.index(e_out)
         S = S[:idx] + S[idx + 1:] + [e_in]
+        # --- UPDATE COUNTS INSTEAD OF RECOMPUTING ---
+        partition_counts[partition_map[e_out]] -= 1
+        partition_counts[partition_map[e_in]] += 1
 
         current_val = objective.evaluate(S, distort=False)[0]
         observed_sets[tuple(S)] = current_val
 
-    S_best = list(exp_mech(observed_sets, eps_0, objective.sensitivity, private=private))
+    S_best = list(exp_mech(observed_sets, eps/2, objective.sensitivity, private=private))
     val, cov, div, _ = objective.evaluate(S_best, distort=False)
     return S_best, val, cov, div, objective.num_queries
 
@@ -194,12 +200,11 @@ def DP_sample_local_search_threshold(objective, ground_set, partition_map, parti
 
     sample_size = math.ceil(ground_set.nb_elements / k)
     lap_scale = objective.sensitivity * (2 + gamma / k) / eps_0 if eps_0 > 0 else 0
-
+    partition_counts = {p: 0 for p in partition_limits}
+    for e in S:
+        partition_counts[partition_map[e]] += 1
     for it in range(int(T)):
         S_set = set(S)
-        partition_counts = {p: 0 for p in partition_limits}
-        for e in S: partition_counts[partition_map[e]] += 1
-
         sampled_elements = random.sample(ground_set.elements, min(len(ground_set.elements), sample_size))
         feasible_swaps = []
         for e_out in S:
@@ -210,7 +215,8 @@ def DP_sample_local_search_threshold(objective, ground_set, partition_map, parti
                 if p_in_id == p_out_id or partition_counts.get(p_in_id, 0) < partition_limits[p_in_id]:
                     feasible_swaps.append((e_out, e_in))
 
-        if not feasible_swaps: break
+        if not feasible_swaps:
+            break
 
         sampled_swap_values = {}
         for e_out, e_in in feasible_swaps:
@@ -226,12 +232,14 @@ def DP_sample_local_search_threshold(objective, ground_set, partition_map, parti
             e_out, e_in = best_swap
             idx = S.index(e_out)
             S = S[:idx] + S[idx + 1:] + [e_in]
+            partition_counts[partition_map[e_out]] -= 1
+            partition_counts[partition_map[e_in]] += 1
             current_val = new_val
             observed_sets[tuple(S)] = current_val
         else:
             break
 
-    S_best = list(exp_mech(observed_sets, eps_0, objective.sensitivity, private=private))
+    S_best = list(exp_mech(observed_sets, eps/2, objective.sensitivity, private=private))
     val, cov, div, _ = objective.evaluate(S_best, distort=False)
     return S_best, val, cov, div, objective.num_queries
 
