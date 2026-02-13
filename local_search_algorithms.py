@@ -81,11 +81,13 @@ def get_initial_set(objective, ground_set, partition_map, partition_limits, k, e
     return S
 
 
-def local_search(objective, ground_set, partition_map, partition_limits, k, gamma):
+def local_search(objective, ground_set :GroundSet, partition_map, partition_limits, k, gamma):
     """
     Standard deterministic Local Search with threshold-based swaps.
     """
     S = get_initial_set(objective, ground_set, partition_map, partition_limits, k)
+    # S = get_arbitrary_feasible(ground_set, partition_map, partition_limits, k)
+    print('Got initial set', S)
     current_val, coverage, dist, _ = objective.evaluate(S, distort=False)
 
     partition_counts = {p: 0 for p in partition_limits}
@@ -102,7 +104,8 @@ def local_search(objective, ground_set, partition_map, partition_limits, k, gamm
         for e_out in S:
             p_out_id = partition_map[e_out]
             for e_in in ground_set.elements:
-                if e_in in S_set: continue
+                if e_in in S_set:
+                    continue
                 p_in_id = partition_map[e_in]
 
                 if p_in_id == p_out_id or partition_counts.get(p_in_id, 0) + 1 <= partition_limits[p_in_id]:
@@ -111,7 +114,8 @@ def local_search(objective, ground_set, partition_map, partition_limits, k, gamm
                     val, _, _, _ = objective.evaluate(S_tmp, distort=False)
                     swap_values[(e_out, e_in)] = val
 
-        if not swap_values: break
+        if not swap_values:
+            break
 
         best_swap = max(swap_values, key=swap_values.get)
         best_val = swap_values[best_swap]
@@ -141,7 +145,9 @@ def DP_sample_local_search(objective, ground_set, partition_map, partition_limit
     eps_0 = get_best_eps_0(eps_target=eps/2, delta_target=delta_target, k=T, decomposable=False)
 
     S = get_arbitrary_feasible(ground_set, partition_map, partition_limits, k)
-    observed_sets = {tuple(S): objective.evaluate(S, distort=False)[0]}
+    print('Got initial set', S)
+
+    observed_sets = {tuple(sorted(S)): objective.evaluate(S, distort=False)[0]}
     sample_size = math.ceil(ground_set.nb_elements / k)
     partition_counts = {p: 0 for p in partition_limits}
     for e in S:
@@ -177,7 +183,8 @@ def DP_sample_local_search(objective, ground_set, partition_map, partition_limit
         partition_counts[partition_map[e_in]] += 1
 
         current_val = objective.evaluate(S, distort=False)[0]
-        observed_sets[tuple(S)] = current_val
+        observed_sets[tuple(sorted(S))] = current_val
+        print('current_val:', current_val)
 
     S_best = list(exp_mech(observed_sets, eps/2, objective.sensitivity, private=private))
     val, cov, div, _ = objective.evaluate(S_best, distort=False)
@@ -191,15 +198,16 @@ def DP_sample_local_search_threshold(objective, ground_set, partition_map, parti
     delta_target = 1 / (objective.num_users ** 1.5)
     T = calculate_iterations(k, gamma)
     # Budget split: 50% for initial/final steps, 50% for iterative steps
-    comp = 2 * T + 1
-    eps_0 = get_best_eps_0(eps_target=eps / 2, delta_target=delta_target, k=comp, decomposable=False)
+    comp = 2 * T
+    eps_0 = get_best_eps_0(eps_target=eps / 3, delta_target=delta_target, k=comp, decomposable=False)
+    forced_exploration = min(10, T)
 
-    S = get_initial_set(objective, ground_set, partition_map, partition_limits, k, eps=eps / 2, private=True)
+    S = get_initial_set(objective, ground_set, partition_map, partition_limits, k, eps=eps / 3, private=True)
     current_val, coverage, dist, _ = objective.evaluate(S, distort=False)
-    observed_sets = {tuple(S): current_val}
+    observed_sets = {tuple(sorted(S)): current_val}
 
     sample_size = math.ceil(ground_set.nb_elements / k)
-    lap_scale = objective.sensitivity * (2 + gamma / k) / eps_0 if eps_0 > 0 else 0
+    lap_scale = objective.sensitivity * (2 + gamma / ground_set.nb_elements) / eps_0 if eps_0 > 0 else 0
     partition_counts = {p: 0 for p in partition_limits}
     for e in S:
         partition_counts[partition_map[e]] += 1
@@ -228,19 +236,21 @@ def DP_sample_local_search_threshold(objective, ground_set, partition_map, parti
         new_val = sampled_swap_values[best_swap]
 
         laplace_noise = np.random.laplace(0, lap_scale) if private else 0
-        if new_val - (1 + gamma / k) * current_val > laplace_noise:
+        if new_val - (1 + gamma / ground_set.nb_elements) * current_val > laplace_noise or it < forced_exploration:
             e_out, e_in = best_swap
             idx = S.index(e_out)
             S = S[:idx] + S[idx + 1:] + [e_in]
             partition_counts[partition_map[e_out]] -= 1
             partition_counts[partition_map[e_in]] += 1
             current_val = new_val
-            observed_sets[tuple(S)] = current_val
+            observed_sets[tuple(sorted(S))] = current_val
+            print('current_val:', current_val)
         else:
             break
 
-    S_best = list(exp_mech(observed_sets, eps/2, objective.sensitivity, private=private))
+    S_best = list(exp_mech(observed_sets, eps/3, objective.sensitivity, private=private))
     val, cov, div, _ = objective.evaluate(S_best, distort=False)
+    print(f'val: {val}')
     return S_best, val, cov, div, objective.num_queries
 
 
