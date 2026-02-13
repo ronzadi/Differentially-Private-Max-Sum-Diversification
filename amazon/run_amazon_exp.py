@@ -52,7 +52,7 @@ def run_amazon_experiment(objective, ground_set, params, rep):
             final_selected[name] = selected
 
     df_results = pd.DataFrame(results)
-    output_file = "results/Amazon_Master_Results.csv"
+    output_file = "results/Amazon_Greedy_Results.csv"
     df_results.to_csv(output_file, mode='a', index=False, header=not os.path.isfile(output_file))
 
     return final_selected.get('DPGreedy')
@@ -62,10 +62,13 @@ def run_amazon_experiment(objective, ground_set, params, rep):
 if __name__ == "__main__":
     reviews_path = "../datasets/amazon/FULL_Health_and_Household_Top10k_Dense.csv"
     reviews_df = pd.read_csv(reviews_path, header=None, names=['user_id', 'parent_asin', 'rating', 'timestamp'])
-    reviews_df['rating'] = reviews_df['rating']/5.0
+    # reviews_df['rating'] = reviews_df['rating']/5.0
+    reviews_df['rating'] = 1
 
     meta_path = "../datasets/amazon/FULL_meta_Health_and_Household_top10k.csv"
-    meta_df = pd.read_csv(meta_path, sep='\x1f', low_memory=False).sort_values(by='rating_number', ascending=False).head(1000)
+    meta_df = pd.read_csv(meta_path, sep='\x1f', low_memory=False)
+    meta_df = meta_df[meta_df['categories'].apply(lambda c: 'Health Care' in c)]
+    meta_df = meta_df.sort_values(by='rating_number', ascending=False).head(1000)
 
     # 1. Get the list of ASINs from the filtered meta_df
     selected_asins = meta_df['parent_asin'].unique()
@@ -151,6 +154,6 @@ if __name__ == "__main__":
         obj.lambda_param = config['lambda']
         obj.set_k(config['k'])
 
-        run_amazon_experiment(obj, g_set, config, rep=1)  # Reduced reps for speed
+        run_amazon_experiment(obj, g_set, config, rep=10)  # Reduced reps for speed
 
 
