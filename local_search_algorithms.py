@@ -37,7 +37,27 @@ def get_arbitrary_base(ground_set, partition_map, partition_limits, k):
     return S
 
 
-def get_initial_set(objective, ground_set, partition_map, partition_limits, k, eps=None, private=False):
+def get_initial_set_top1(objective, ground_set, partition_map, partition_limits, k, eps=None, private=False):
+    # 1. Evaluate all singletons that fit in a partition
+    scores = {e: objective.evaluate([e], distort=False)[0]
+              for e in ground_set.elements if partition_limits.get(partition_map[e], 0) >= 1}
+
+    # 2. Select top element (Private or Exact)
+    best_e = exp_mech(scores, eps, objective.sensitivity, private=private) if private else max(scores, key=scores.get)
+
+    # 3. Matroid completion (fill remaining k-1 slots)
+    S, counts = [best_e], {p: 0 for p in partition_limits}
+    counts[partition_map[best_e]] = 1
+
+    for e in ground_set.elements:
+        p = partition_map[e]
+        if len(S) < k and e not in S and counts.get(p, 0) < partition_limits.get(p, 0):
+            S.append(e)
+            counts[p] = counts.get(p, 0) + 1
+
+    return S
+
+def get_initial_top_two_base(objective, ground_set, partition_map, partition_limits, k, eps=None, private=False):
     """
     Finds the best feasible pair (optionally privately) and completes it to size k.
     """
@@ -84,7 +104,7 @@ def get_initial_set(objective, ground_set, partition_map, partition_limits, k, e
 def local_search(objective, ground_set: GroundSet, partition_map, partition_limits, k, gamma):
 
     objective.num_queries = 0
-    S = get_initial_set(objective, ground_set, partition_map, partition_limits, k)
+    S = get_initial_top_two_base(objective, ground_set, partition_map, partition_limits, k)
     print('Got initial set', S)
 
     # 1. Capture the initial auxiliary state
@@ -147,9 +167,11 @@ def DP_sample_local_search(objective, ground_set, partition_map, partition_limit
     objective.num_queries = 0
     delta_target = 1 / (objective.num_users ** 1.5)
     T = calculate_iterations(k, gamma)
-    eps_0 = get_best_eps_0(eps_target=eps/2, delta_target=delta_target, k=T, decomposable=False)
+    eps_0 = get_best_eps_0(eps_target=eps/3, delta_target=delta_target, k=T, decomposable=False)
 
-    S = get_arbitrary_base(ground_set, partition_map, partition_limits, k)
+    # S = get_arbitrary_base(ground_set, partition_map, partition_limits, k)
+    S = get_initial_set_top1(objective, ground_set, partition_map, partition_limits, k, eps / 3, private=private)
+    # S = get(objective, ground_set, partition_map, partition_limits, k, eps / 3, private=private)
     print('Got initial set', S)
     # 1. Capture the initial auxiliary state
     current_val, coverage, dist, auxiliary = objective.evaluate(S, distort=False)
@@ -188,10 +210,13 @@ def DP_sample_local_search(objective, ground_set, partition_map, partition_limit
         partition_counts[partition_map[e_in]] += 1
 
         current_val = sampled_swap_values[best_swap]
+        # if it % 50 == 0:
+        #     current_val, _, _, auxiliary = objective.evaluate(S, distort=False)
+
         observed_sets[tuple(sorted(S))] = current_val
         # print('current_val:', current_val)
 
-    S_best = list(exp_mech(observed_sets, eps/2, objective.sensitivity, private=private))
+    S_best = list(exp_mech(observed_sets, eps/3, objective.sensitivity, private=private))
     val, cov, div, _ = objective.evaluate(S_best, distort=False)
     print(f"Total Value: {val:.4f}, Coverage: {cov:.4f}, Diversity: {div:.4f}, Selected: {S}")
     return S_best, val, cov, div, objective.num_queries
