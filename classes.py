@@ -210,7 +210,7 @@ class MSDUberObjective(MSDObjective):  # Inherits from MSDObjective if required 
 
 
 class MSDAmazonObjective(MSDObjective):
-    def __init__(self, reviews_df, product_categories, lambda_param, k, distortion):
+    def __init__(self, reviews_df, product_categories, lambda_param, k, distortion, distance_matrix):
         # We still need unique_users to calculate the average (N) accurately
         unique_users = reviews_df['user_id'].unique()
         self.num_users = len(unique_users)
@@ -232,7 +232,7 @@ class MSDAmazonObjective(MSDObjective):
         self.distortion = distortion
         self.num_pairs = (k * (k - 1)) / 2 if k > 1 else 1
         self.num_queries = 0
-
+        self.distance_matrix = distance_matrix
         self.sensitivity = 1 / self.num_users  # Decomposable objective: \sum_{x\in D} f_x where f_x:2^V -> [0,1].
 
     def set_k(self, new_k):
@@ -240,11 +240,12 @@ class MSDAmazonObjective(MSDObjective):
         self.num_pairs = (new_k * (new_k - 1)) / 2 if new_k > 1 else 1
 
     def _jaccard_distance(self, asin1, asin2):
-        set1 = self.categories.get(asin1, set())
-        set2 = self.categories.get(asin2, set())
-        intersection = len(set1.intersection(set2))
-        union = len(set1.union(set2))
-        return 1.0 - (intersection / union) if union > 0 else 1.0
+        return self.distance_matrix[asin1][asin2]
+        # set1 = self.categories.get(asin1, set())
+        # set2 = self.categories.get(asin2, set())
+        # intersection = len(set1.intersection(set2))
+        # union = len(set1.union(set2))
+        # return 1.0 - (intersection / union) if union > 0 else 1.0
 
     def marginal_gain(self, e, S, auxiliary, charge=True):
         if charge:

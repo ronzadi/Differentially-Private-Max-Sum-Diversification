@@ -161,6 +161,7 @@ if __name__ == "__main__":
         lambda_param=0.15,
         k=20,
         distortion=1.0,
+        distance_matrix = distance_matrix
     )
 
     # --- 4. Experimental Parameter Grid ---
