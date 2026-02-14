@@ -328,24 +328,15 @@ class MSDAmazonObjective(MSDObjective):
         users_of_out = self.user_sets.get(e_out, set())
         users_of_in = self.user_sets.get(e_in, set())
 
-        # 1. Calculate Coverage Change
-        # Loss: A user is uncovered ONLY if e_out was the ONLY product covering them (count == 1)
-        lost_coverage = 0
-        for u_id in users_of_out:
-            if coverage_counts.get(u_id, 0) == 1:
-                lost_coverage += 1
+        # # 1. Calculate Coverage Change
+        # Simplified Logic in evaluate_swap
+        current_users = set(coverage_counts.keys())
+        # Users that will be lost because e_out was their only provider
+        lost_users = {u_id for u_id in users_of_out if coverage_counts.get(u_id) == 1}
+        # Users that e_in adds who aren't currently covered (or were just lost)
+        gained_users = {u_id for u_id in users_of_in if (u_id not in current_users or u_id in lost_users)}
 
-        # Gain: A user is newly covered if e_in covers them AND they weren't in max_ratings
-        # OR if they were in max_ratings but were about to be lost (count == 1 and in users_of_out)
-        gained_coverage = 0
-        for u_id in users_of_in:
-            is_currently_covered = u_id in coverage_counts
-            will_be_covered_by_others = is_currently_covered and not (u_id in users_of_out and coverage_counts[u_id] == 1)
-
-            if not will_be_covered_by_others:
-                gained_coverage += 1
-
-        new_relevance = (len(coverage_counts) - lost_coverage + gained_coverage) / self.num_users
+        new_relevance = (len(coverage_counts) - len(lost_users) + len(gained_users)) / self.num_users
 
         # 2. Calculate Diversity Change
         dist_out = sum(self._jaccard_distance(e_out, s) for s in S if s != e_out)

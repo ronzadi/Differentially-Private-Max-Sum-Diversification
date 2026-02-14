@@ -16,9 +16,9 @@ def calculate_iterations(k, gamma):
     return math.ceil(numerator / denominator)
 
 
-def get_arbitrary_feasible(ground_set, partition_map, partition_limits, k):
+def get_arbitrary_base(ground_set, partition_map, partition_limits, k):
     """
-    Finds an arbitrary feasible base (size k) for the matroid intersection.
+    Finds an arbitrary base (size k) for the matroid intersection.
     Used for basic initialization.
     """
     S = []
@@ -82,6 +82,8 @@ def get_initial_set(objective, ground_set, partition_map, partition_limits, k, e
 
 
 def local_search(objective, ground_set: GroundSet, partition_map, partition_limits, k, gamma):
+
+    objective.num_queries = 0
     S = get_initial_set(objective, ground_set, partition_map, partition_limits, k)
     print('Got initial set', S)
 
@@ -133,7 +135,7 @@ def local_search(objective, ground_set: GroundSet, partition_map, partition_limi
 
     # Re-eval one last time for final return stats
     current_val, coverage, dist, _ = objective.evaluate(S, distort=False)
-    print(f"Total Value: {current_val:.4f}, Coverage: {coverage:.4f}, Diversity: {dist:.4f}")
+    print(f"Total Value: {current_val:.4f}, Coverage: {coverage:.4f}, Diversity: {dist:.4f}, Selected: {S}")
     return S, current_val, coverage, dist, objective.num_queries
 
 
@@ -142,11 +144,12 @@ def DP_sample_local_search(objective, ground_set, partition_map, partition_limit
     DP Local Search using sampling to reduce sensitivity and query count.
     Updates the set at every iteration for T iterations.
     """
+    objective.num_queries = 0
     delta_target = 1 / (objective.num_users ** 1.5)
     T = calculate_iterations(k, gamma)
     eps_0 = get_best_eps_0(eps_target=eps/2, delta_target=delta_target, k=T, decomposable=False)
 
-    S = get_arbitrary_feasible(ground_set, partition_map, partition_limits, k)
+    S = get_arbitrary_base(ground_set, partition_map, partition_limits, k)
     print('Got initial set', S)
     # 1. Capture the initial auxiliary state
     current_val, coverage, dist, auxiliary = objective.evaluate(S, distort=False)
@@ -186,73 +189,11 @@ def DP_sample_local_search(objective, ground_set, partition_map, partition_limit
 
         current_val = sampled_swap_values[best_swap]
         observed_sets[tuple(sorted(S))] = current_val
-        print('current_val:', current_val)
+        # print('current_val:', current_val)
 
     S_best = list(exp_mech(observed_sets, eps/2, objective.sensitivity, private=private))
     val, cov, div, _ = objective.evaluate(S_best, distort=False)
-    print(f"Total Value: {val:.4f}, Coverage: {cov:.4f}, Diversity: {div:.4f}")
-    return S_best, val, cov, div, objective.num_queries
-
-def DP_sample_local_search_threshold(objective, ground_set, partition_map, partition_limits, k, eps, gamma, private):
-    """
-    DP Local Search that uses a noisy threshold test to decide whether to accept a swap.
-    """
-    delta_target = 1 / (objective.num_users ** 1.5)
-    T = calculate_iterations(k, gamma)
-    # Budget split: 50% for initial/final steps, 50% for iterative steps
-    comp = 2 * T
-    eps_0 = get_best_eps_0(eps_target=eps / 3, delta_target=delta_target, k=comp, decomposable=False)
-    forced_exploration = min(10, T)
-
-    S = get_initial_set(objective, ground_set, partition_map, partition_limits, k, eps=eps / 3, private=True)
-    current_val, coverage, dist, _ = objective.evaluate(S, distort=False)
-    observed_sets = {tuple(sorted(S)): current_val}
-
-    sample_size = math.ceil(ground_set.nb_elements / k)
-    lap_scale = objective.sensitivity * (2 + gamma / ground_set.nb_elements) / eps_0 if eps_0 > 0 else 0
-    partition_counts = {p: 0 for p in partition_limits}
-    for e in S:
-        partition_counts[partition_map[e]] += 1
-    for it in range(int(T)):
-        S_set = set(S)
-        sampled_elements = random.sample(ground_set.elements, min(len(ground_set.elements), sample_size))
-        feasible_swaps = []
-        for e_out in S:
-            p_out_id = partition_map[e_out]
-            for e_in in sampled_elements:
-                if e_in in S_set: continue
-                p_in_id = partition_map[e_in]
-                if p_in_id == p_out_id or partition_counts.get(p_in_id, 0) < partition_limits[p_in_id]:
-                    feasible_swaps.append((e_out, e_in))
-
-        if not feasible_swaps:
-            break
-
-        sampled_swap_values = {}
-        for e_out, e_in in feasible_swaps:
-            idx = S.index(e_out)
-            S_tmp = S[:idx] + S[idx + 1:] + [e_in]
-            sampled_swap_values[(e_out, e_in)] = objective.evaluate(S_tmp, distort=False)[0]
-
-        best_swap = exp_mech(sampled_swap_values, eps_0, objective.sensitivity, private=private)
-        new_val = sampled_swap_values[best_swap]
-
-        laplace_noise = np.random.laplace(0, lap_scale) if private else 0
-        if new_val - (1 + gamma / ground_set.nb_elements) * current_val > laplace_noise or it < forced_exploration:
-            e_out, e_in = best_swap
-            idx = S.index(e_out)
-            S = S[:idx] + S[idx + 1:] + [e_in]
-            partition_counts[partition_map[e_out]] -= 1
-            partition_counts[partition_map[e_in]] += 1
-            current_val = new_val
-            observed_sets[tuple(sorted(S))] = current_val
-            print('current_val:', current_val)
-        else:
-            break
-
-    S_best = list(exp_mech(observed_sets, eps/3, objective.sensitivity, private=private))
-    val, cov, div, _ = objective.evaluate(S_best, distort=False)
-    print(f"Total Value: {val:.4f}, Coverage: {cov:.4f}, Diversity: {div:.4f}")
+    print(f"Total Value: {val:.4f}, Coverage: {cov:.4f}, Diversity: {div:.4f}, Selected: {S}")
     return S_best, val, cov, div, objective.num_queries
 
 

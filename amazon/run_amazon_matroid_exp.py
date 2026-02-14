@@ -1,4 +1,5 @@
 import os
+import random
 import time
 import math
 
@@ -10,19 +11,19 @@ from local_search_algorithms import (
     local_search,
     DP_sample_local_search,
     calculate_iterations,
-    DP_sample_local_search_threshold, random_baseline,
+     random_baseline,
 )
 from classes import GroundSet, MSDAmazonObjective
 from greedy_algorithms import greedy
 
 
-def precompute_distances(meta_df, reviews_df):
+def precompute_distances(meta_df):
     """
     Pre-calculates all pairwise Jaccard distances for the ground set
     using meta_df for categories and reviews_df for the ASIN list.
     """
     # 1. Get unique ASINs from the reviews we are actually using
-    all_asins = reviews_df['parent_asin'].unique()
+    all_asins = meta_df['parent_asin'].unique()
 
     # 2. Extract categories from meta_df as a lookup dict
     # Assuming meta_df has 'parent_asin' and 'categories' columns
@@ -52,6 +53,24 @@ def precompute_distances(meta_df, reviews_df):
 
     return dist_matrix
 
+
+def precompute_feasible_pair_values(ground_set:GroundSet, objective: MSDAmazonObjective):
+    elements = ground_set.elements
+    feasible_pair_values = {}
+
+    # 1. Collect values for all feasible pairs
+    for i, e1 in enumerate(elements):
+        p1 = partition_map[e1]
+        if partition_limits[p1] < 1:
+            continue
+
+        for e2 in elements[i + 1:]:
+            p2 = partition_map[e2]
+            if (p1 == p2 and partition_limits[p1] >= 2) or (p1 != p2 and partition_limits[p2] >= 1):
+                val = objective.evaluate([e1, e2], distort=False)[0]
+                feasible_pair_values[(e1, e2)] = val
+
+    return feasible_pair_values
 
 def run_matroid_experiment(objective, ground_set, partition_map, partition_limits, params, rep):
     """
@@ -124,7 +143,7 @@ if __name__ == "__main__":
     meta_path = "../datasets/amazon/FULL_meta_Health_and_Household_top10k.csv"
     meta_df = pd.read_csv(meta_path, sep='\x1f', low_memory=False)
     meta_df = meta_df[meta_df['categories'].apply(lambda c: 'Health Care' in c)]
-    meta_df = meta_df.sort_values(by='rating_number', ascending=False).head(20)
+    meta_df = meta_df.sort_values(by='rating_number', ascending=False).head(1000)
 
     # 1. Get the list of ASINs from the filtered meta_df
     selected_asins = meta_df['parent_asin'].unique()
@@ -132,6 +151,12 @@ if __name__ == "__main__":
     # 2. Filter reviews_df to only include those ASINs
     reviews_df = reviews_df[reviews_df['parent_asin'].isin(selected_asins)]
     print('num reviews: ', len(reviews_df))
+
+    # Optional, sample users
+    ##################
+    # sampled_users = random.sample(list(reviews_df['user_id'].unique()), 100000)
+    # reviews_df = reviews_df[reviews_df['user_id'].isin(sampled_users)]
+    ###################
     print('num users: ', len(reviews_df['user_id'].unique()))
 
     # --- 2. Constraint Modeling (Partition Matroid) ---
@@ -144,7 +169,7 @@ if __name__ == "__main__":
     g_set = GroundSet(elements=all_asins)
 
     # Get pairwise distances matrix
-    distance_matrix = precompute_distances(meta_df, reviews_df)
+    distance_matrix = precompute_distances(meta_df)
 
     # Log dataset statistics
     print(f'Total Reviews: {len(reviews_df)}')
@@ -161,35 +186,39 @@ if __name__ == "__main__":
         lambda_param=0.15,
         k=20,
         distortion=1.0,
-        distance_matrix = distance_matrix
+        distance_matrix=distance_matrix
     )
+
+    # feasible_pair_values = precompute_feasible_pair_values(g_set, obj)
 
     # --- 4. Experimental Parameter Grid ---
     param_grid = [
         # Impact of Cardinality k
-        {'k': 4, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
-        {'k': 6, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
-        {'k': 8, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
-        {'k': 12, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
+        {'k': 4, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
+        {'k': 6, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
+        {'k': 8, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
+        {'k': 10, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
+        {'k': 12, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
+        {'k': 14, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
 
         # Privacy Budget (Epsilon) Sensitivity
-        {'k': 6, 'eps': 0.02, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
-        {'k': 6, 'eps': 0.04, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
-        {'k': 6, 'eps': 0.06, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
-        {'k': 6, 'eps': 0.08, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
-        {'k': 6, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
-        {'k': 6, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
-        {'k': 6, 'eps': 0.4, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
-        {'k': 6, 'eps': 0.6, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
-        {'k': 6, 'eps': 0.8, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
-        {'k': 6, 'eps': 1.0, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.02, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
+        {'k': 6, 'eps': 0.04, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
+        {'k': 6, 'eps': 0.06, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
+        {'k': 6, 'eps': 0.08, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
+        {'k': 6, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
+        {'k': 6, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
+        {'k': 6, 'eps': 0.4, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
+        {'k': 6, 'eps': 0.6, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
+        {'k': 6, 'eps': 0.8, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
+        {'k': 6, 'eps': 1.0, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
 
         # Diversity Weight (Lambda) Sensitivity
-        {'k': 6, 'eps': 0.1, 'lambda': 0, 'private': True, 'gamma': 0.2},
-        {'k': 6, 'eps': 0.1, 'lambda': 0.2, 'private': True, 'gamma': 0.2},
-        {'k': 6, 'eps': 0.1, 'lambda': 0.4, 'private': True, 'gamma': 0.2},
-        {'k': 6, 'eps': 0.1, 'lambda': 0.6, 'private': True, 'gamma': 0.2},
-        {'k': 6, 'eps': 0.1, 'lambda': 0.8, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.1, 'lambda': 0, 'private': True, 'gamma': 0.3},
+        {'k': 6, 'eps': 0.1, 'lambda': 0.2, 'private': True, 'gamma': 0.3},
+        {'k': 6, 'eps': 0.1, 'lambda': 0.4, 'private': True, 'gamma': 0.3},
+        {'k': 6, 'eps': 0.1, 'lambda': 0.6, 'private': True, 'gamma': 0.3},
+        {'k': 6, 'eps': 0.1, 'lambda': 0.8, 'private': True, 'gamma': 0.3},
     ]
 
     # --- 5. Execution Loop ---
@@ -212,5 +241,5 @@ if __name__ == "__main__":
             partition_map,
             partition_limits,
             config,
-            rep=1
+            rep=5
         )
