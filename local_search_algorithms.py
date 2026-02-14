@@ -81,14 +81,12 @@ def get_initial_set(objective, ground_set, partition_map, partition_limits, k, e
     return S
 
 
-def local_search(objective, ground_set :GroundSet, partition_map, partition_limits, k, gamma):
-    """
-    Standard deterministic Local Search with threshold-based swaps.
-    """
+def local_search(objective, ground_set: GroundSet, partition_map, partition_limits, k, gamma):
     S = get_initial_set(objective, ground_set, partition_map, partition_limits, k)
-    # S = get_arbitrary_feasible(ground_set, partition_map, partition_limits, k)
     print('Got initial set', S)
-    current_val, coverage, dist, _ = objective.evaluate(S, distort=False)
+
+    # 1. Capture the initial auxiliary state
+    current_val, coverage, dist, auxiliary = objective.evaluate(S, distort=False)
 
     partition_counts = {p: 0 for p in partition_limits}
     for e in S:
@@ -97,10 +95,7 @@ def local_search(objective, ground_set :GroundSet, partition_map, partition_limi
     while True:
         swap_values = {}
         S_set = set(S)
-        # partition_counts = {p: S.count(e) for e, p in partition_map.items() if
-        #                     e in S_set}  # Optimization note: simplified for brevity
 
-        # Recalculate partition counts properly
         for e_out in S:
             p_out_id = partition_map[e_out]
             for e_in in ground_set.elements:
@@ -109,10 +104,8 @@ def local_search(objective, ground_set :GroundSet, partition_map, partition_limi
                 p_in_id = partition_map[e_in]
 
                 if p_in_id == p_out_id or partition_counts.get(p_in_id, 0) + 1 <= partition_limits[p_in_id]:
-                    idx = S.index(e_out)
-                    S_tmp = S[:idx] + S[idx + 1:] + [e_in]
-                    val, _, _, _ = objective.evaluate(S_tmp, distort=False)
-                    swap_values[(e_out, e_in)] = val
+                    # 2. evaluate_swap uses the persistent auxiliary state
+                    swap_values[(e_out, e_in)] = objective.evaluate_swap(e_out, e_in, S, auxiliary, distort=False)
 
         if not swap_values:
             break
@@ -122,16 +115,25 @@ def local_search(objective, ground_set :GroundSet, partition_map, partition_limi
 
         if best_val > current_val * (1 + gamma / k):
             e_out, e_in = best_swap
+
+            # 3. COMMIT THE SWAP via the Objective Class
+            # This updates the counts and distance sum without re-evaluating everything
+            auxiliary = objective.swap_element(e_out, e_in, S, auxiliary)
+
             idx = S.index(e_out)
             S = S[:idx] + S[idx + 1:] + [e_in]
-            # --- UPDATE COUNTS INSTEAD OF RECOMPUTING ---
+
             partition_counts[partition_map[e_out]] -= 1
             partition_counts[partition_map[e_in]] += 1
-            current_val, coverage, dist, _ = objective.evaluate(S, distort=False)
+
+            current_val = best_val
             print(f"Committed: {e_out} -> {e_in} | New Val: {current_val:.4f}")
         else:
             break
 
+    # Re-eval one last time for final return stats
+    current_val, coverage, dist, _ = objective.evaluate(S, distort=False)
+    print(f"Total Value: {current_val:.4f}, Coverage: {coverage:.4f}, Diversity: {dist:.4f}")
     return S, current_val, coverage, dist, objective.num_queries
 
 
@@ -146,8 +148,10 @@ def DP_sample_local_search(objective, ground_set, partition_map, partition_limit
 
     S = get_arbitrary_feasible(ground_set, partition_map, partition_limits, k)
     print('Got initial set', S)
+    # 1. Capture the initial auxiliary state
+    current_val, coverage, dist, auxiliary = objective.evaluate(S, distort=False)
 
-    observed_sets = {tuple(sorted(S)): objective.evaluate(S, distort=False)[0]}
+    observed_sets = {tuple(sorted(S)): current_val}
     sample_size = math.ceil(ground_set.nb_elements / k)
     partition_counts = {p: 0 for p in partition_limits}
     for e in S:
@@ -170,26 +174,24 @@ def DP_sample_local_search(objective, ground_set, partition_map, partition_limit
         sampled_keys = random.sample(feasible_swaps, min(len(feasible_swaps), sample_size))
         sampled_swap_values = {}
         for e_out, e_in in sampled_keys:
-            idx = S.index(e_out)
-            S_tmp = S[:idx] + S[idx + 1:] + [e_in]
-            sampled_swap_values[(e_out, e_in)] = objective.evaluate(S_tmp, distort=False)[0]
+            sampled_swap_values[(e_out, e_in)] = objective.evaluate_swap(e_out, e_in, S, auxiliary, distort=False)
 
         best_swap = exp_mech(sampled_swap_values, eps_0, objective.sensitivity, private=private)
         e_out, e_in = best_swap
+        auxiliary = objective.swap_element(e_out, e_in, S, auxiliary)
         idx = S.index(e_out)
         S = S[:idx] + S[idx + 1:] + [e_in]
-        # --- UPDATE COUNTS INSTEAD OF RECOMPUTING ---
         partition_counts[partition_map[e_out]] -= 1
         partition_counts[partition_map[e_in]] += 1
 
-        current_val = objective.evaluate(S, distort=False)[0]
+        current_val = sampled_swap_values[best_swap]
         observed_sets[tuple(sorted(S))] = current_val
         print('current_val:', current_val)
 
     S_best = list(exp_mech(observed_sets, eps/2, objective.sensitivity, private=private))
     val, cov, div, _ = objective.evaluate(S_best, distort=False)
+    print(f"Total Value: {val:.4f}, Coverage: {cov:.4f}, Diversity: {div:.4f}")
     return S_best, val, cov, div, objective.num_queries
-
 
 def DP_sample_local_search_threshold(objective, ground_set, partition_map, partition_limits, k, eps, gamma, private):
     """
@@ -250,7 +252,7 @@ def DP_sample_local_search_threshold(objective, ground_set, partition_map, parti
 
     S_best = list(exp_mech(observed_sets, eps/3, objective.sensitivity, private=private))
     val, cov, div, _ = objective.evaluate(S_best, distort=False)
-    print(f'val: {val}')
+    print(f"Total Value: {val:.4f}, Coverage: {cov:.4f}, Diversity: {div:.4f}")
     return S_best, val, cov, div, objective.num_queries
 
 
@@ -278,6 +280,6 @@ def random_baseline(objective: MSDObjective, ground_set: GroundSet, partition_ma
     if len(S) < k:
         print(f"Baseline Warning: Could only find {len(S)} feasible elements.")
 
-    val, rel, div, _ = objective.evaluate(S, distort=False)
-
-    return S, val, rel, div, objective.num_queries
+    val, cov, div, _ = objective.evaluate(S, distort=False)
+    print(f"Total Value: {val:.4f}, Coverage: {cov:.4f}, Diversity: {div:.4f}")
+    return S, val, cov, div, objective.num_queries
