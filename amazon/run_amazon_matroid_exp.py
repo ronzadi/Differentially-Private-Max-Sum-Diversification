@@ -92,13 +92,13 @@ def run_matroid_experiment(objective, ground_set, partition_map, partition_limit
          [objective, ground_set, partition_map, partition_limits, k, g]),
         ('DPSampleLocalSearch', DP_sample_local_search,
          [objective, ground_set, partition_map, partition_limits, k, eps, g, p]),
-        # ('DPSampleLocalSearchThreshold', DP_sample_local_search_threshold,
-        #  [objective, ground_set, partition_map, partition_limits, k, eps, g, p])
     ]
 
     for i in range(rep):
         print(f"\n--- Repetition {i + 1}/{rep} ---")
         for name, func, args in algorithms:
+            if i > 0 and name == 'LocalSearch_Matroid':
+                continue
             start_time = time.time()
             res = func(*args)
             duration = time.time() - start_time
@@ -124,7 +124,7 @@ def run_matroid_experiment(objective, ground_set, partition_map, partition_limit
 
     # Data Persistence
     df_results = pd.DataFrame(results)
-    output_file = "results/Amazon_Matroid_Results.csv"
+    output_file = "results/Amazon_Matroid_Results8-14.csv"
 
     # Create results directory if it doesn't exist
     os.makedirs("results", exist_ok=True)
@@ -194,31 +194,35 @@ if __name__ == "__main__":
     # --- 4. Experimental Parameter Grid ---
     param_grid = [
         # Impact of Cardinality k
-        {'k': 4, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
-        {'k': 6, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
-        {'k': 8, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
-        {'k': 10, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
-        {'k': 12, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
-        {'k': 14, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
+        {'k': 4, 'eps': 0.5, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.5, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
+        {'k': 8, 'eps': 0.5, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
+        {'k': 10, 'eps': 0.5, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
+        {'k': 12, 'eps': 0.5, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
+        {'k': 14, 'eps': 0.5, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
 
         # Privacy Budget (Epsilon) Sensitivity
-        {'k': 6, 'eps': 0.02, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
-        {'k': 6, 'eps': 0.04, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
-        {'k': 6, 'eps': 0.06, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
-        {'k': 6, 'eps': 0.08, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
-        {'k': 6, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
-        {'k': 6, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
-        {'k': 6, 'eps': 0.4, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
-        {'k': 6, 'eps': 0.6, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
-        {'k': 6, 'eps': 0.8, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
-        {'k': 6, 'eps': 1.0, 'lambda': 0.1, 'private': True, 'gamma': 0.3},
+        # {'k': 6, 'eps': 0.02, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
+        # {'k': 6, 'eps': 0.04, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
+        # {'k': 6, 'eps': 0.06, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
+        # {'k': 6, 'eps': 0.08, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.3, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.4, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.5, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.6, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.7, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.8, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.9, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 1.0, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
 
         # Diversity Weight (Lambda) Sensitivity
-        {'k': 6, 'eps': 0.1, 'lambda': 0, 'private': True, 'gamma': 0.3},
-        {'k': 6, 'eps': 0.1, 'lambda': 0.2, 'private': True, 'gamma': 0.3},
-        {'k': 6, 'eps': 0.1, 'lambda': 0.4, 'private': True, 'gamma': 0.3},
-        {'k': 6, 'eps': 0.1, 'lambda': 0.6, 'private': True, 'gamma': 0.3},
-        {'k': 6, 'eps': 0.1, 'lambda': 0.8, 'private': True, 'gamma': 0.3},
+        {'k': 6, 'eps': 0.5, 'lambda': 0, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.5, 'lambda': 0.2, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.5, 'lambda': 0.4, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.5, 'lambda': 0.6, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.5, 'lambda': 0.8, 'private': True, 'gamma': 0.2},
     ]
 
     # --- 5. Execution Loop ---

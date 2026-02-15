@@ -167,10 +167,11 @@ def DP_sample_local_search(objective, ground_set, partition_map, partition_limit
     objective.num_queries = 0
     delta_target = 1 / (objective.num_users ** 1.5)
     T = calculate_iterations(k, gamma)
-    eps_0 = get_best_eps_0(eps_target=eps/3, delta_target=delta_target, k=T, decomposable=False)
+    print(f'iterations: {T}')
+    eps_0 = get_best_eps_0(eps_target=eps/2, delta_target=delta_target, k=T+1, decomposable=False)
 
     # S = get_arbitrary_base(ground_set, partition_map, partition_limits, k)
-    S = get_initial_set_top1(objective, ground_set, partition_map, partition_limits, k, eps / 3, private=private)
+    S = get_initial_set_top1(objective, ground_set, partition_map, partition_limits, k, eps_0, private=private)
     # S = get(objective, ground_set, partition_map, partition_limits, k, eps / 3, private=private)
     print('Got initial set', S)
     # 1. Capture the initial auxiliary state
@@ -216,7 +217,7 @@ def DP_sample_local_search(objective, ground_set, partition_map, partition_limit
         observed_sets[tuple(sorted(S))] = current_val
         # print('current_val:', current_val)
 
-    S_best = list(exp_mech(observed_sets, eps/3, objective.sensitivity, private=private))
+    S_best = list(exp_mech(observed_sets, eps/2, objective.sensitivity, private=private))
     val, cov, div, _ = objective.evaluate(S_best, distort=False)
     print(f"Total Value: {val:.4f}, Coverage: {cov:.4f}, Diversity: {div:.4f}, Selected: {S}")
     return S_best, val, cov, div, objective.num_queries
