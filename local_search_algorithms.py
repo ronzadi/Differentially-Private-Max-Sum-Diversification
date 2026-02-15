@@ -2,7 +2,7 @@ import math
 import random
 import numpy as np
 
-from classes import MSDObjective, GroundSet
+from classes import MSDObjective, GroundSet, MSDAmazonObjective
 from dp_mechanisms import exp_mech, get_best_eps_0
 
 
@@ -57,7 +57,7 @@ def get_initial_set_top1(objective, ground_set, partition_map, partition_limits,
 
     return S
 
-def get_initial_top_two_base(objective, ground_set, partition_map, partition_limits, k, eps=None, private=False):
+def get_initial_top_two_base(objective :MSDAmazonObjective, ground_set, partition_map, partition_limits, k, eps=None, private=False):
     """
     Finds the best feasible pair (optionally privately) and completes it to size k.
     """
@@ -159,7 +159,7 @@ def local_search(objective, ground_set: GroundSet, partition_map, partition_limi
     return S, current_val, coverage, dist, objective.num_queries
 
 
-def DP_sample_local_search(objective, ground_set, partition_map, partition_limits, k, eps, gamma, private):
+def DP_sample_local_search(objective: MSDAmazonObjective, ground_set, partition_map, partition_limits, k, eps, gamma, private):
     """
     DP Local Search using sampling to reduce sensitivity and query count.
     Updates the set at every iteration for T iterations.
