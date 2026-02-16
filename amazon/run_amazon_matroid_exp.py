@@ -1,4 +1,5 @@
 import os
+import platform
 import random
 import time
 import math
@@ -124,7 +125,7 @@ def run_matroid_experiment(objective, ground_set, partition_map, partition_limit
 
     # Data Persistence
     df_results = pd.DataFrame(results)
-    output_file = "results/Amazon_Matroid_Results8-14.csv"
+    output_file = "results/Amazon_Matroid_Results.csv"
 
     # Create results directory if it doesn't exist
     os.makedirs("results", exist_ok=True)
@@ -135,12 +136,13 @@ def run_matroid_experiment(objective, ground_set, partition_map, partition_limit
 
 if __name__ == "__main__":
     # --- 1. Data Ingestion & Preprocessing ---
-    reviews_path = "../datasets/amazon/FULL_Health_and_Household_Top10k_Dense.csv"
+    prefix = '../' if platform.system() == 'Windows' else ''
+    reviews_path = prefix + "datasets/amazon/FULL_Health_and_Household_Top10k_Dense.csv"
     reviews_df = pd.read_csv(reviews_path, header=None, names=['user_id', 'parent_asin', 'rating', 'timestamp'])
 
     reviews_df['rating'] = 1
 
-    meta_path = "../datasets/amazon/FULL_meta_Health_and_Household_top10k.csv"
+    meta_path = prefix + "datasets/amazon/FULL_meta_Health_and_Household_top10k.csv"
     meta_df = pd.read_csv(meta_path, sep='\x1f', low_memory=False)
     meta_df = meta_df[meta_df['categories'].apply(lambda c: 'Health Care' in c)]
     meta_df = meta_df.sort_values(by='rating_number', ascending=False).head(1000)
@@ -194,18 +196,14 @@ if __name__ == "__main__":
     # --- 4. Experimental Parameter Grid ---
     param_grid = [
         # Impact of Cardinality k
-        {'k': 4, 'eps': 0.5, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
-        {'k': 6, 'eps': 0.5, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
-        {'k': 8, 'eps': 0.5, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
-        {'k': 10, 'eps': 0.5, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
-        {'k': 12, 'eps': 0.5, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
-        {'k': 14, 'eps': 0.5, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
+        {'k': 4, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
+        {'k': 8, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
+        {'k': 10, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
+        {'k': 12, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
+        {'k': 14, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
 
         # Privacy Budget (Epsilon) Sensitivity
-        # {'k': 6, 'eps': 0.02, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
-        # {'k': 6, 'eps': 0.04, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
-        # {'k': 6, 'eps': 0.06, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
-        # {'k': 6, 'eps': 0.08, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
         {'k': 6, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
         {'k': 6, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
         {'k': 6, 'eps': 0.3, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
