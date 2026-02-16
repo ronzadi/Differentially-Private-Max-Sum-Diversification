@@ -4,6 +4,8 @@ import time
 
 import pandas as pd
 import numpy as np
+
+from amazon.run_amazon_matroid_exp import precompute_distances
 from classes import GroundSet, MSDAmazonObjective
 from greedy_algorithms import greedy, DP_greedy, DP_sample_greedy, random_baseline
 from dp_mechanisms import get_best_eps_0
@@ -92,12 +94,15 @@ if __name__ == "__main__":
     all_asins = list(meta_df['parent_asin'].unique())
     g_set = GroundSet(elements=all_asins)
 
+    distance_matrix = precompute_distances(meta_df)
+
     obj = MSDAmazonObjective(
         reviews_df=reviews_df,
         product_categories=product_categories_dict,
         lambda_param=0.15,
         k=20,
         distortion=1.0,
+        distance_matrix=distance_matrix
     )
 
     param_grid = [
