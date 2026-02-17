@@ -1,8 +1,10 @@
 import math
 import os
+import platform
+
 import pandas as pd
 import numpy as np
-import folium
+# import folium
 from prep import UberOptimizer
 from classes import MSDUberObjective, GroundSet
 from greedy_algorithms import greedy, DP_greedy, DP_sample_greedy, random_baseline
@@ -115,7 +117,8 @@ def run_uber_experiment(objective, ground_set, passenger_coords, grid_coords, pa
 
 # --- Execution ---
 if __name__ == "__main__":
-    DATA_PATH = r"../datasets/uber/uber-raw-data.csv"
+
+    prefix = '../' if platform.system() == 'Windows' else ''
     HULL = [ # Manhattan Convex Hull
         (40.7005038, -74.0144209), (40.7112088, -73.9776851), (40.7282434, -73.9720702),
         (40.7418214, -73.9733576), (40.7754746, -73.9430232), (40.7974885, -73.9296695),
@@ -126,28 +129,35 @@ if __name__ == "__main__":
 
     # Define a list of parameter combinations to test
     param_grid = [
-        {'k': 5,  'eps': 0.1, 'lambda': 0.15, 'private': False, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
-        {'k': 10,  'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
-        {'k': 15, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
-        {'k': 20, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
-        {'k': 25, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
-        {'k': 30, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 5,  'eps': 0.1, 'lambda': 0.1, 'private': False, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 10,  'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 15, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 20, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 25, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 30, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
         # ###
-        {'k': 10, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
-        {'k': 10, 'eps': 0.4, 'lambda': 0.3, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
-        {'k': 10, 'eps': 0.6, 'lambda': 0.5, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
-        {'k': 10, 'eps': 0.8, 'lambda': 0.7, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
-        ####
+        {'k': 10, 'eps': 0.02, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 10, 'eps': 0.04, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 10, 'eps': 0.06, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 10, 'eps': 0.08, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
         {'k': 10, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
-        {'k': 10, 'eps': 0.1, 'lambda': 0.3, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
-        {'k': 10, 'eps': 0.1, 'lambda': 0.5, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
-        {'k': 10, 'eps': 0.1, 'lambda': 0.7, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 10, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 10, 'eps': 0.4, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 10, 'eps': 0.6, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 10, 'eps': 0.8, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 10, 'eps': 1, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        ####
+        {'k': 10, 'eps': 0.1, 'lambda': 0, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 10, 'eps': 0.1, 'lambda': 0.2, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 10, 'eps': 0.1, 'lambda': 0.4, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 10, 'eps': 0.1, 'lambda': 0.6, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 10, 'eps': 0.1, 'lambda': 0.8, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
     ]
 
     # Initialize pre-processor once
     opt = UberOptimizer(HULL, n_data=10000)
     # passengers = opt.process_raw_data(DATA_PATH, "sampled_passengers.csv")
-    passengers = opt.read_from_file('..\\Uber\sampled_passengers89good.csv')
+    passengers = opt.read_from_file(prefix + r'datasets/uber/sampled_passengers89good.csv')
     print(len(passengers))
 
     for config in param_grid:
