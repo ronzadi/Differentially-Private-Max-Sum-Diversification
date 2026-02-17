@@ -216,11 +216,11 @@ if __name__ == "__main__":
         {'k': 6, 'eps': 1.0, 'lambda': 0.1, 'private': True, 'gamma': 0.2},
 
         # Diversity Weight (Lambda) Sensitivity
-        {'k': 6, 'eps': 0.5, 'lambda': 0, 'private': True, 'gamma': 0.2},
-        {'k': 6, 'eps': 0.5, 'lambda': 0.2, 'private': True, 'gamma': 0.2},
-        {'k': 6, 'eps': 0.5, 'lambda': 0.4, 'private': True, 'gamma': 0.2},
-        {'k': 6, 'eps': 0.5, 'lambda': 0.6, 'private': True, 'gamma': 0.2},
-        {'k': 6, 'eps': 0.5, 'lambda': 0.8, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.2, 'lambda': 0, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.2, 'lambda': 0.2, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.2, 'lambda': 0.4, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.2, 'lambda': 0.6, 'private': True, 'gamma': 0.2},
+        {'k': 6, 'eps': 0.2, 'lambda': 0.8, 'private': True, 'gamma': 0.2},
     ]
 
     # --- 5. Execution Loop ---
