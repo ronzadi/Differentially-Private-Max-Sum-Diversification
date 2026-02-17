@@ -136,7 +136,7 @@ def DP_sample_greedy(objective: MSDObjective, ground_set: GroundSet, k, eps, pri
     for i in range(k):
 
         # subsample
-        g_i = min(k, ground_set.nb_elements-i+1) if not oblivious else k-i+1
+        g_i = min(k, ground_set.nb_elements-i+1) if oblivious else k-i+1
         sample_size = int(np.ceil(len(remaining_elements) * min( np.log(1/gamma)/g_i, 1.0)))
         sampled_elements = set(random.sample(remaining_elements, sample_size))
 
