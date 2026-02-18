@@ -249,4 +249,4 @@ def random_baseline(objective: MSDObjective, ground_set: GroundSet, partition_ma
 
     val, cov, div, _ = objective.evaluate(S, distort=False)
     print(f"Total Value: {val:.4f}, Coverage: {cov:.4f}, Diversity: {div:.4f}")
-    return S, val, cov, div, objective.num_queries
+    return S, val, cov, div, 0
