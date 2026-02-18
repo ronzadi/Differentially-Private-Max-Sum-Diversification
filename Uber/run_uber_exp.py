@@ -1,6 +1,7 @@
 import math
 import os
 import platform
+import time
 
 import pandas as pd
 import numpy as np
@@ -50,20 +51,29 @@ def run_uber_experiment(objective, ground_set, passenger_coords, grid_coords, pa
     final_selected = {}
     for i in range(rep):
         for name, func, args in algorithms:
-            print(f"--- Running {name} ---")
-            # Handle different return signatures (Random doesn't return queries)
+            print(name)
+            # --- Timing Start ---
+            start_time = time.time()
             res = func(*args)
-            selected, value = res[0], res[1]
-            queries = res[2] if len(res) > 2 else 0
-
-            print(f"{name} Value: {value:.4f}")
+            end_time = time.time()
+            duration = end_time - start_time
+            # --- Timing End ---
+            selected, value, rel, div = res[0], res[1], res[2], res[3]
+            queries = res[4] if len(res) > 4 else 0
 
             results.append({
-                'alg': name, 'k': k, 'lambda_param': lam, 'eps': eps,
-                'private': p, 'selected': selected, 'value': value, 'queries': queries
+                'alg': name,
+                'k': k,
+                'lambda_param': lam,
+                'eps': eps,
+                'rep': i,
+                'value': value,
+                'relevance': rel,
+                'diversity': div,
+                'queries': queries,
+                'time_sec': round(duration, 4)  # Added time tracking
             })
             final_selected[name] = selected
-
     # --- Save Results ---
     df_results = pd.DataFrame(results)
     output_file = f"results/Uber_Master_Results_{params['n_locs']}_{params['spurious']}.csv"
