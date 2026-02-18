@@ -179,6 +179,7 @@ def DP_sample_local_search(objective: MSDAmazonObjective, ground_set, partition_
 
     observed_sets = {tuple(sorted(S)): current_val}
     sample_size = math.ceil(ground_set.nb_elements / k)
+    sampled_ground_set = random.sample(ground_set.elements, sample_size)
     partition_counts = {p: 0 for p in partition_limits}
     for e in S:
         partition_counts[partition_map[e]] += 1
@@ -188,7 +189,7 @@ def DP_sample_local_search(objective: MSDAmazonObjective, ground_set, partition_
         feasible_swaps = []
         for e_out in S:
             p_out_id = partition_map[e_out]
-            for e_in in ground_set.elements:
+            for e_in in sampled_ground_set:
                 if e_in in S_set: continue
                 p_in_id = partition_map[e_in]
                 if p_in_id == p_out_id or partition_counts.get(p_in_id, 0) < partition_limits[p_in_id]:
@@ -197,9 +198,8 @@ def DP_sample_local_search(objective: MSDAmazonObjective, ground_set, partition_
         if not feasible_swaps:
             break
 
-        sampled_keys = random.sample(feasible_swaps, min(len(feasible_swaps), sample_size))
         sampled_swap_values = {}
-        for e_out, e_in in sampled_keys:
+        for e_out, e_in in feasible_swaps:
             sampled_swap_values[(e_out, e_in)] = objective.evaluate_swap(e_out, e_in, S, auxiliary, distort=False)
 
         best_swap = exp_mech(sampled_swap_values, eps_0, objective.sensitivity, private=private)
