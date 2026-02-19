@@ -40,7 +40,8 @@ def run_uber_experiment(objective, ground_set, passenger_coords, grid_coords, pa
     # --- Algorithm Suite Setup ---
     # format: (label, function, args)
     algorithms = [
-        ('nonpriv', greedy, [objective, ground_set, k]),
+        # ('nonpriv', greedy, [objective, ground_set, k]),
+        ('nonpriv', DP_greedy, [objective, ground_set, k, eps_0, False]),
         ('DPGreedy', DP_greedy, [objective, ground_set, k, eps_0, p]),
         ('DPSampleOblGreedy', DP_sample_greedy, [objective, ground_set, k, eps_0, p, True, g]),
         ('DPSampleGreedy', DP_sample_greedy, [objective, ground_set, k, eps_0, p, False, g]),
@@ -139,15 +140,15 @@ if __name__ == "__main__":
 
     # Define a list of parameter combinations to test
     param_grid = [
-        {'k': 4,  'eps': 0.1, 'lambda': 0.1, 'private': False, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
-        {'k': 6,  'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
-        {'k': 8, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
-        {'k': 10, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
-        {'k': 12, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
-        {'k': 14, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
-        {'k': 16, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
-        {'k': 18, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
-        {'k': 20, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 4,  'eps': 0.2, 'lambda': 0.1, 'private': False, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 6,  'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 8, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 10, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 12, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 14, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 16, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 18, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 20, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
         # {'k': 30, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
         # ###
         {'k': 6, 'eps': 0.02, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
@@ -161,11 +162,11 @@ if __name__ == "__main__":
         {'k': 6, 'eps': 0.8, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
         {'k': 6, 'eps': 1, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
         ####
-        {'k': 6, 'eps': 0.1, 'lambda': 0, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
-        {'k': 6, 'eps': 0.1, 'lambda': 0.2, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
-        {'k': 6, 'eps': 0.1, 'lambda': 0.4, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
-        {'k': 6, 'eps': 0.1, 'lambda': 0.6, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
-        {'k': 6, 'eps': 0.1, 'lambda': 0.8, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 6, 'eps': 0.2, 'lambda': 0, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 6, 'eps': 0.2, 'lambda': 0.2, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 6, 'eps': 0.2, 'lambda': 0.4, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 6, 'eps': 0.2, 'lambda': 0.6, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 6, 'eps': 0.2, 'lambda': 0.8, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
     ]
 
     # Initialize pre-processor once
