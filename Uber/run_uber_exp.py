@@ -140,7 +140,7 @@ if __name__ == "__main__":
 
     # Define a list of parameter combinations to test
     param_grid = [
-        {'k': 4,  'eps': 0.2, 'lambda': 0.1, 'private': False, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
+        {'k': 4,  'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
         {'k': 6,  'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
         {'k': 8, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
         {'k': 10, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1, 'n_locs': 1000, 'spurious': 800},
