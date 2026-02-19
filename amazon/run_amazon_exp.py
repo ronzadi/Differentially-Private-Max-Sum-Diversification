@@ -1,11 +1,15 @@
 import math
 import os
+import platform
 import time
 
 import pandas as pd
 import numpy as np
 
-from amazon.run_amazon_matroid_exp import precompute_distances
+try:
+    from amazon.run_amazon_matroid_exp import precompute_distances
+except ModuleNotFoundError:
+    from run_amazon_matroid_exp import precompute_distances
 from classes import GroundSet, MSDAmazonObjective
 from greedy_algorithms import greedy, DP_greedy, DP_sample_greedy, random_baseline
 from dp_mechanisms import get_best_eps_0
@@ -19,7 +23,8 @@ def run_amazon_experiment(objective, ground_set, params, rep):
     eps_0 = get_best_eps_0(eps_target=eps, delta_target=delta_target, k=k)
 
     algorithms = [
-        ('nonpriv', greedy, [objective, ground_set, k]),
+        # ('nonpriv', greedy, [objective, ground_set, k]),
+        ('nonpriv', DP_greedy, [objective, ground_set, k, eps_0, False]),
         ('DPGreedy', DP_greedy, [objective, ground_set, k, eps_0, p]),
         ('DPSampleOblGreedy', DP_sample_greedy, [objective, ground_set, k, eps_0, p, True, g]),
         ('DPSampleGreedy', DP_sample_greedy, [objective, ground_set, k, eps_0, p, False, g]),
@@ -30,6 +35,7 @@ def run_amazon_experiment(objective, ground_set, params, rep):
     for i in range(rep):
         print(f"\n--- Repetition {i + 1}/{rep} ---")
         for name, func, args in algorithms:
+            print(name)
             # --- Timing Start ---
             start_time = time.time()
             res = func(*args)
@@ -62,12 +68,11 @@ def run_amazon_experiment(objective, ground_set, params, rep):
 
 # --- Execution ---
 if __name__ == "__main__":
-    reviews_path = "../datasets/amazon/FULL_Health_and_Household_Top10k_Dense.csv"
+    prefix = '../' if platform.system() == 'Windows' else ''
+    reviews_path = prefix + "datasets/amazon/FULL_Health_and_Household_Top10k_Dense.csv"
     reviews_df = pd.read_csv(reviews_path, header=None, names=['user_id', 'parent_asin', 'rating', 'timestamp'])
-    # reviews_df['rating'] = reviews_df['rating']/5.0
-    reviews_df['rating'] = 1
 
-    meta_path = "../datasets/amazon/FULL_meta_Health_and_Household_top10k.csv"
+    meta_path = prefix + "datasets/amazon/FULL_meta_Health_and_Household_top10k.csv"
     meta_df = pd.read_csv(meta_path, sep='\x1f', low_memory=False)
     meta_df = meta_df[meta_df['categories'].apply(lambda c: 'Health Care' in c)]
     meta_df = meta_df.sort_values(by='rating_number', ascending=False).head(1000)
@@ -106,46 +111,46 @@ if __name__ == "__main__":
     )
 
     param_grid = [
-        # {'k': 10, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        {'k': 10, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        {'k': 20, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
+        {'k': 10, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
+        {'k': 10, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
+        {'k': 20, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
         # {'k': 10, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
-        {'k': 30, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        {'k': 40, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
+        {'k': 30, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
+        {'k': 40, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
         # {'k': 15, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
-        {'k': 50, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        {'k': 60, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
+        {'k': 50, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
+        {'k': 60, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
         # {'k': 25, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
-        {'k': 70, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        {'k': 80, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        {'k': 90, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        {'k': 100, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        # {'k': 30, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
-        ###
+        {'k': 70, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
+        {'k': 80, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
+        {'k': 90, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
+        {'k': 100, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
+        {'k': 30, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
+        ##
         # {'k': 10, 'eps': 0.01, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
-        {'k': 15, 'eps': 0.02, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
+        {'k': 60, 'eps': 0.02, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
         # {'k'2 10, 'eps': 0.03, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
-        {'k': 15, 'eps': 0.04, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
+        {'k': 60, 'eps': 0.04, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
         # {'k'2 10, 'eps': 0.05, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
-        {'k': 15, 'eps': 0.06, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
+        {'k': 60, 'eps': 0.06, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
         # {'k'2 10, 'eps': 0.07, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
-        {'k': 15, 'eps': 0.08, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
+        {'k': 60, 'eps': 0.08, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
         # {'k'2 10, 'eps': 0.09, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
-        {'k': 15, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        {'k': 15, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        {'k': 15, 'eps': 0.4, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        {'k': 15, 'eps': 0.6, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        {'k': 15, 'eps': 0.8, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        {'k': 15, 'eps': 1, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
+        {'k': 60, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
+        {'k': 60, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
+        {'k': 60, 'eps': 0.4, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
+        {'k': 60, 'eps': 0.6, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
+        {'k': 60, 'eps': 0.8, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
+        {'k': 60, 'eps': 1, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
 
-        {'k': 15, 'eps': 0.1, 'lambda': 0, 'private': True, 'gamma': 0.1},
-        {'k': 15, 'eps': 0.1, 'lambda': 0.2, 'private': True, 'gamma': 0.1},
+        {'k': 60, 'eps': 0.1, 'lambda': 0, 'private': True, 'gamma': 0.1},
+        {'k': 60, 'eps': 0.1, 'lambda': 0.2, 'private': True, 'gamma': 0.1},
         # {'k'2 10, 'eps': 0.03, 'lambda': .15, 'private': True, 'gamma': 0.1},
-        {'k': 15, 'eps': 0.1, 'lambda': 0.4, 'private': True, 'gamma': 0.1},
+        {'k': 60, 'eps': 0.1, 'lambda': 0.4, 'private': True, 'gamma': 0.1},
         # {'k'2 10, 'eps': 0.05, 'lambda': .15, 'private': True, 'gamma': 0.1},
-        {'k': 15, 'eps': 0.1, 'lambda': 0.6, 'private': True, 'gamma': 0.1},
+        {'k': 60, 'eps': 0.1, 'lambda': 0.6, 'private': True, 'gamma': 0.1},
         # {'k'2 10, 'eps': 0.07, 'lambda': .15, 'private': True, 'gamma': 0.1},
-        {'k': 15, 'eps': 0.1, 'lambda': 0.8, 'private': True, 'gamma': 0.1},
+        {'k': 60, 'eps': 0.1, 'lambda': 0.8, 'private': True, 'gamma': 0.1},
         # {'k'2 10, 'eps': 0.09, 'lambda': .15, 'private': True, 'gamma': 0.1},
     ]
 
