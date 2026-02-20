@@ -370,227 +370,159 @@ class MSDAmazonObjective(MSDObjective):
 
         return new_max_ratings, new_dist_sum
 
-# class MSDAmazonObjective(MSDObjective):
-#     def __init__(self, reviews_df, product_categories, lambda_param, k, distortion):
-#         # We still need unique_users to calculate the average (N) accurately
-#         unique_users = reviews_df['user_id'].unique()
-#         self.num_users = len(unique_users)
-#
-#         # Group ratings by product: {asin: [(user_id, rating), ...]}
-#         # Note: We store the actual user_id now, no need for an integer map
-#         self.ratings_lookup = (
-#             reviews_df.groupby('parent_asin')[['user_id', 'rating']]
-#             .apply(lambda x: list(map(tuple, x.values)))
-#             .to_dict()
-#         )
-#
-#         self.categories = product_categories  # Dict: asin -> set()
-#         self.lambda_param = lambda_param
-#         self.k = k
-#         self.distortion = distortion
-#         self.num_pairs = (k * (k - 1)) / 2 if k > 1 else 1
-#         self.num_queries = 0
-#
-#         self.sensitivity = 1 / self.num_users  # Decomposable objective: \sum_{x\in D} f_x where f_x:2^V -> [0,1].
-#
-#     def set_k(self, new_k):
-#         self.k = new_k
-#         self.num_pairs = (new_k * (new_k - 1)) / 2 if new_k > 1 else 1
-#
-#     def _jaccard_distance(self, asin1, asin2):
-#         set1 = self.categories.get(asin1, set())
-#         set2 = self.categories.get(asin2, set())
-#         intersection = len(set1.intersection(set2))
-#         union = len(set1.union(set2))
-#         return 1.0 - (intersection / union) if union > 0 else 1.0
-#
-#     def marginal_gain(self, e, S, auxiliary, charge=True):
-#         if charge:
-#             self.num_queries += 1
-#
-#         # Unpack current state: max_ratings is now a DICT {user_id: current_max}
-#         max_ratings, current_dist_sum = auxiliary
-#
-#         # 1. Relevance Gain
-#         relevance_diff = 0.0
-#         for u_id, rating in self.ratings_lookup.get(e, []):
-#             # If user not in dict, their current max is 0
-#             current_u_max = max_ratings.get(u_id, 0.0)
-#             if rating > current_u_max:
-#                 relevance_diff += (rating - current_u_max)
-#
-#         relevance_gain = relevance_diff / self.num_users
-#
-#         # 2. Diversity Gain
-#         dist_to_existing = 0.0
-#         if S:
-#             for s_asin in S:
-#                 dist_to_existing += self._jaccard_distance(e, s_asin)
-#
-#         diversity_gain = (dist_to_existing / self.num_pairs) if self.num_pairs > 0 else 0.0
-#
-#         total_gain = (1 - self.lambda_param) * self.distortion * relevance_gain + (self.lambda_param * diversity_gain)
-#
-#         return total_gain, None
-#
-#     def add_one_element(self, e_asin, S, auxiliary):
-#         max_ratings, current_dist_sum = auxiliary
-#
-#         # Shallow copy of the dict is enough since values are floats
-#         new_max_ratings = max_ratings.copy()
-#
-#         for u_id, rating in self.ratings_lookup.get(e_asin, []):
-#             current_u_max = new_max_ratings.get(u_id, 0.0)
-#             if rating > current_u_max:
-#                 new_max_ratings[u_id] = rating
-#
-#         dist_to_existing = 0.0
-#         for s_asin in S:
-#             dist_to_existing += self._jaccard_distance(e_asin, s_asin)
-#
-#         return new_max_ratings, current_dist_sum + dist_to_existing
-#
-#     def evaluate(self, S, distort=True):
-#         self.num_queries += 1
-#         if not S:
-#             return 0.0, 0.0, 0.0, ({}, 0.0)  # Empty dict instead of zero array
-#
-#         max_ratings = {}
-#         for asin in S:
-#             for u_id, rating in self.ratings_lookup.get(asin, []):
-#                 if rating > max_ratings.get(u_id, 0.0):
-#                     max_ratings[u_id] = rating
-#
-#         # relevance = sum(max_ratings) / N. Users not in dict contribute 0 to sum.
-#         relevance_term = sum(max_ratings.values()) / self.num_users
-#
-#         dist_sum = 0.0
-#         n_S = len(S)
-#         if n_S > 1:
-#             for i in range(n_S):
-#                 for j in range(i + 1, n_S):
-#                     dist_sum += self._jaccard_distance(S[i], S[j])
-#
-#         avg_dist = (dist_sum / self.num_pairs) if self.num_pairs > 0 else 0.0
-#
-#         d_factor = self.distortion if distort else 1
-#         total_val = (1 - self.lambda_param) * d_factor * relevance_term + (self.lambda_param * avg_dist)
-#
-#         return total_val, relevance_term, avg_dist,  (max_ratings, dist_sum)
 
+class MSDAmazonObjectiveMat(MSDObjective):
+    def __init__(self, reviews_df, product_categories, lambda_param, k, distortion, distance_matrix):
+        unique_users = reviews_df['user_id'].unique()
+        self.num_users = len(unique_users)
 
-#
-# class MSDAmazonObjective(MSDObjective):
-#     def __init__(self, reviews_df, product_categories, lambda_param, k, distortion):
-#         """
-#         Args:
-#             reviews_df: DataFrame with ['user_id', 'parent_asin', 'rating']
-#             product_categories: Dict mapping parent_asin -> set of category strings
-#         """
-#         # Map user_ids to integers for efficient array indexing in auxiliary state
-#         unique_users = reviews_df['user_id'].unique()
-#         self.user_map = {user: i for i, user in enumerate(unique_users)}
-#         self.num_users = len(unique_users)
-#
-#         # Group ratings by product for fast lookups during marginal gain
-#         # {product_asin: [(user_idx, rating), ...]}
-#         self.ratings_lookup = defaultdict(list)
-#         for _, row in reviews_df.iterrows():
-#             u_idx = self.user_map[row['user_id']]
-#             self.ratings_lookup[row['parent_asin']].append((u_idx, row['rating']))
-#
-#         self.categories = product_categories  # Dict: asin -> set()
-#         self.lambda_param = lambda_param
-#         self.k = k
-#         self.distortion = distortion
-#         self.num_pairs = (k * (k - 1)) / 2 if k > 1 else 1
-#         self.num_queries = 0
-#         self.sensitivity = 1/self.num_users
-#
-#     def _jaccard_distance(self, asin1, asin2):
-#         set1 = self.categories.get(asin1, set())
-#         set2 = self.categories.get(asin2, set())
-#         intersection = len(set1.intersection(set2))
-#         union = len(set1.union(set2))
-#         return 1.0 - (intersection / union) if union > 0 else 1.0
-#
-#     def marginal_gain(self, e, S, auxiliary, charge=True):
-#         if charge:
-#             self.num_queries += 1
-#
-#         # Unpack the current state (read-only)
-#         max_ratings, current_dist_sum = auxiliary
-#
-#         # 1. Relevance Gain (Zero Copies)
-#         relevance_diff = 0.0
-#         # Only look at the specific users who rated product 'e'
-#         for u_idx, rating in self.ratings_lookup.get(e, []):
-#             # If this product is better than the user's current favorite in S...
-#             if rating > max_ratings[u_idx]:
-#                 # ...add only the improvement to the total gain
-#                 relevance_diff += (rating - max_ratings[u_idx])
-#
-#         relevance_gain = relevance_diff / self.num_users
-#
-#         # 2. Diversity Gain (Calculated on the fly)
-#         dist_to_existing = 0.0
-#         if S:
-#             for s_asin in S:
-#                 dist_to_existing += self._jaccard_distance(e, s_asin)
-#
-#         diversity_gain = (dist_to_existing / self.num_pairs) if self.num_pairs > 0 else 0.0
-#
-#         total_gain = (1 - self.lambda_param) * self.distortion * relevance_gain + (self.lambda_param * diversity_gain)
-#
-#         # We return NONE for the auxiliary because we didn't waste time/RAM building it.
-#         # This prevents the "NoneType" error ONLY IF the greedy loop
-#         # uses add_one_element to do the final update.
-#         return total_gain, None
-#
-#     def add_one_element(self, e_asin, S, auxiliary):
-#         """
-#         Update the auxiliary state (the max_ratings array) when an element is chosen.
-#         """
-#         max_ratings, current_dist_sum = auxiliary
-#         new_max_ratings = max_ratings.copy()
-#
-#         dist_to_existing = 0.0
-#         for u_idx, rating in self.ratings_lookup.get(e_asin, []):
-#             if rating > new_max_ratings[u_idx]:
-#                 new_max_ratings[u_idx] = rating
-#
-#         for s_asin in S:
-#             dist_to_existing += self._jaccard_distance(e_asin, s_asin)
-#
-#         return new_max_ratings, current_dist_sum + dist_to_existing
-#
-#     def evaluate(self, S, distort=True):
-#         """
-#         Calculates f(S) from scratch.
-#         Returns: (value, auxiliary) where auxiliary is (max_ratings_vec, current_dist_sum)
-#         """
-#         self.num_queries += 1
-#         if not S:
-#             return 0.0, (np.zeros(self.num_users), 0.0)
-#
-#         # 1. Relevance: avg over users of max ratings
-#         max_ratings = np.zeros(self.num_users)
-#         for asin in S:
-#             for u_idx, rating in self.ratings_lookup.get(asin, []):
-#                 if rating > max_ratings[u_idx]:
-#                     max_ratings[u_idx] = rating
-#         relevance_term = np.mean(max_ratings)
-#
-#         # 2. Diversity: Sum of pairwise distances
-#         dist_sum = 0.0
-#         n_S = len(S)
-#         if n_S > 1:
-#             for i in range(n_S):
-#                 for j in range(i + 1, n_S):
-#                     dist_sum += self._jaccard_distance(S[i], S[j])
-#
-#         avg_dist = (dist_sum / self.num_pairs) if self.num_pairs > 0 else 0.0
-#
-#         distort = self.distortion if distort else 1
-#         total_val = (1 - self.lambda_param) * self.distortion * relevance_term + (self.lambda_param * avg_dist)
-#         return total_val, (max_ratings, dist_sum)
+        # EXACT LOGIC: Ratings as list of tuples
+        self.ratings_lookup = (
+            reviews_df.groupby('parent_asin')[['user_id', 'rating']]
+            .apply(lambda x: list(map(tuple, x.values)))
+            .to_dict()
+        )
+        self.user_sets = {
+            asin: {u[0] for u in users}
+            for asin, users in self.ratings_lookup.items()
+        }
+        self.categories = product_categories
+        self.lambda_param = lambda_param
+        self.k = k
+        self.distortion = distortion
+        self.num_pairs = (k * (k - 1)) / 2 if k > 1 else 1
+        self.num_queries = 0
+        self.distance_matrix = distance_matrix
+        self.sensitivity = 1 / self.num_users
+
+    def set_k(self, new_k):
+        self.k = new_k
+        self.num_pairs = (new_k * (new_k - 1)) / 2 if new_k > 1 else 1
+
+    def _jaccard_distance(self, asin1, asin2):
+        return self.distance_matrix[asin1][asin2]
+
+    def marginal_gain(self, e, S, auxiliary, charge=True):
+        if charge:
+            self.num_queries += 1
+        max_ratings, _ = auxiliary
+
+        relevance_diff = 0.0
+        get_count = max_ratings.get
+        for u_id, _ in self.ratings_lookup.get(e, []):
+            if get_count(u_id, 0) == 0:
+                relevance_diff += 1.0
+
+        relevance_gain = relevance_diff / self.num_users
+
+        dist_to_existing = 0.0
+        if S:
+            dist_map = self.distance_matrix[e]
+            for s_asin in S:
+                dist_to_existing += dist_map[s_asin]
+
+        diversity_gain = (dist_to_existing / self.num_pairs) if self.num_pairs > 0 else 0.0
+        return (1 - self.lambda_param) * self.distortion * relevance_gain + (self.lambda_param * diversity_gain), None
+
+    def add_one_element(self, e_asin, S, auxiliary):
+        max_ratings, current_dist_sum = auxiliary
+        new_max_ratings = max_ratings.copy()
+
+        for u_id, _ in self.ratings_lookup.get(e_asin, []):
+            new_max_ratings[u_id] = new_max_ratings.get(u_id, 0) + 1
+
+        dist_to_existing = 0.0
+        if S:
+            dist_map = self.distance_matrix[e_asin]
+            for s_asin in S:
+                dist_to_existing += dist_map[s_asin]
+
+        return new_max_ratings, current_dist_sum + dist_to_existing
+
+    def evaluate(self, S, distort=True):
+        self.num_queries += 1
+        if not S:
+            return 0.0, 0.0, 0.0, ({}, 0.0)
+
+        max_ratings = {}
+        for asin in S:
+            for u_id, _ in self.ratings_lookup.get(asin, []):
+                max_ratings[u_id] = max_ratings.get(u_id, 0) + 1
+
+        relevance_term = len(max_ratings) / self.num_users
+
+        dist_sum = 0.0
+        n_S = len(S)
+        if n_S > 1:
+            for i in range(n_S):
+                asin_i = S[i]
+                dist_map = self.distance_matrix[asin_i]
+                for j in range(i + 1, n_S):
+                    dist_sum += dist_map[S[j]]
+
+        avg_dist = (dist_sum / self.num_pairs) if self.num_pairs > 0 else 0.0
+        d_factor = self.distortion if distort else 1
+        total_val = (1 - self.lambda_param) * d_factor * relevance_term + (self.lambda_param * avg_dist)
+
+        return total_val, relevance_term, avg_dist, (max_ratings, dist_sum)
+
+    def evaluate_swap(self, e_out, e_in, S, auxiliary, distort=True):
+        self.num_queries += 1
+        coverage_counts, current_dist_sum = auxiliary
+
+        users_of_out = self.user_sets.get(e_out, set())
+        users_of_in = self.user_sets.get(e_in, set())
+
+        lost_count = 0
+        get_count = coverage_counts.get
+        for u_id in users_of_out:
+            if get_count(u_id) == 1:
+                lost_count += 1
+
+        gained_count = 0
+        for u_id in users_of_in:
+            # User gained if not covered OR only covered by e_out
+            if u_id not in coverage_counts or (get_count(u_id) == 1 and u_id in users_of_out):
+                gained_count += 1
+
+        new_relevance = (len(coverage_counts) - lost_count + gained_count) / self.num_users
+
+        dist_out = 0.0
+        dist_in = 0.0
+        dist_map_out = self.distance_matrix[e_out]
+        dist_map_in = self.distance_matrix[e_in]
+
+        for s in S:
+            if s != e_out:
+                dist_out += dist_map_out[s]
+                dist_in += dist_map_in[s]
+
+        new_dist_sum = current_dist_sum - dist_out + dist_in
+        new_diversity = (new_dist_sum / self.num_pairs) if self.num_pairs > 0 else 0.0
+
+        d_factor = self.distortion if distort else 1
+        return (1 - self.lambda_param) * d_factor * new_relevance + (self.lambda_param * new_diversity)
+
+    def swap_element(self, e_out, e_in, S, auxiliary):
+        max_ratings, current_dist_sum = auxiliary
+        new_max_ratings = max_ratings.copy()
+
+        # FIXED: Corrected name from new_counts to new_max_ratings
+        for u_id, _ in self.ratings_lookup.get(e_out, []):
+            new_max_ratings[u_id] -= 1
+            if new_max_ratings[u_id] == 0:
+                del new_max_ratings[u_id]
+
+        for u_id, _ in self.ratings_lookup.get(e_in, []):
+            new_max_ratings[u_id] = new_max_ratings.get(u_id, 0) + 1
+
+        dist_out = 0.0
+        dist_in = 0.0
+        dist_map_out = self.distance_matrix[e_out]
+        dist_map_in = self.distance_matrix[e_in]
+        for s in S:
+            if s != e_out:
+                dist_out += dist_map_out[s]
+                dist_in += dist_map_in[s]
+
+        return new_max_ratings, current_dist_sum - dist_out + dist_in
