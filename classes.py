@@ -159,7 +159,7 @@ class MSDUberObjective(MSDObjective):  # Inherits from MSDObjective if required 
         Efficiently calculates the increase in utility if element 'e' is added to 'S'.
         """
         if charge:
-            self.num_queries += 2
+            self.num_queries += 1
 
         max_sims, current_dist_sum = auxiliary
 
