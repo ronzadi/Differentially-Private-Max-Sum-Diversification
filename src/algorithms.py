@@ -6,18 +6,7 @@ from classes import MSDObjective, GroundSet, MSDAmazonObjective
 
 
 def greedy(objective: MSDObjective, ground_set: GroundSet, k):
-    """
-    Non-private Distorted Greedy Algorithm (Borodin et al.).
 
-    Args:
-        objective: An instance of MSDFacilityLocation
-        ground_set: An instance of GroundSet
-        k: Cardinality constraint
-
-    Returns:
-        S: The list of selected element indices
-        current_val: The final objective value
-    """
     objective.distortion = 0.5
     objective.num_queries = 0
     S = []
@@ -62,19 +51,7 @@ def greedy(objective: MSDObjective, ground_set: GroundSet, k):
 
 
 def DP_greedy(objective: MSDObjective, ground_set: GroundSet, k, eps, private):
-    """
-    Private Max-Sum Greedy (Algorithm 1)
 
-    Args:
-        objective: An instance of MSDFacilityLocation
-        ground_set: An instance of GroundSet
-        k: Cardinality constraint
-        eps: Privacy parameter
-
-    Returns:
-        S: The list of selected element indices
-        current_val: The final objective value
-    """
     objective.distortion = 0.5
     objective.num_queries = 0
     S = []
@@ -106,22 +83,7 @@ def DP_greedy(objective: MSDObjective, ground_set: GroundSet, k, eps, private):
     return S, val, coverage, dist, objective.num_queries
 
 def DP_sample_greedy(objective: MSDObjective, ground_set: GroundSet, k, eps, private, oblivious, gamma):
-    """
-    Private Max-Sum Greedy (Algorithm 1)
 
-    Args:
-        objective: An instance of MSDFacilityLocation
-        ground_set: An instance of GroundSet
-        k: Cardinality constraint
-        eps: Privacy parameter
-        private: Whether the algorithm is executed with DP noise
-        oblivious:
-        gamma: Utility parameter
-
-    Returns:
-        S: The list of selected element indices
-        current_val: The final objective value
-    """
     objective.distortion = 1 if oblivious else 1/(2-gamma)
     objective.num_queries = 0
 
@@ -161,19 +123,7 @@ def DP_sample_greedy(objective: MSDObjective, ground_set: GroundSet, k, eps, pri
 
 
 def random_baseline(objective: MSDObjective, ground_set: GroundSet, k):
-    """
-    Random Baseline Algorithm.
-    Selects a random feasible subset of size k and evaluates it.
 
-    Args:
-        objective: An instance of MSDFacilityLocation
-        ground_set: An instance of GroundSet
-        k: Cardinality constraint
-
-    Returns:
-        S: The list of randomly selected element indices
-        final_val: The objective value of the random set
-    """
     objective.distortion = 1.0
 
     S = random.sample(list(ground_set.elements), k)
@@ -184,20 +134,14 @@ def random_baseline(objective: MSDObjective, ground_set: GroundSet, k):
 
 
 def calculate_iterations(k, gamma):
-    """
-    Calculates the iteration threshold T.
-    Formula: T = ceil((2 * k * log(k)) / (gamma * (1 - 1/e)))
-    """
+
     numerator = 2 * k * math.log(k)
     denominator = gamma * (1 - 1 / math.e)
     return math.ceil(numerator / denominator)
 
 
 def get_arbitrary_base(ground_set, partition_map, partition_limits, k):
-    """
-    Finds an arbitrary base (size k) for the matroid intersection.
-    Used for basic initialization.
-    """
+
     S = []
     counts = {p: 0 for p in partition_limits}
 
@@ -235,9 +179,7 @@ def get_initial_set_top1(objective, ground_set, partition_map, partition_limits,
     return S
 
 def get_initial_top_two_base(objective :MSDAmazonObjective, ground_set, partition_map, partition_limits, k, eps=None, private=False):
-    """
-    Finds the best feasible pair (optionally privately) and completes it to size k.
-    """
+
     elements = ground_set.elements
     feasible_pair_values = {}
 
@@ -336,10 +278,7 @@ def local_search(objective, ground_set: GroundSet, partition_map, partition_limi
     return S, current_val, coverage, dist, objective.num_queries
 
 def DP_sample_local_search(objective: MSDAmazonObjective, ground_set, partition_map, partition_limits, k, eps, gamma, private):
-    """
-    DP Local Search using sampling to reduce sensitivity and query count.
-    Updates the set at every iteration for T iterations.
-    """
+
     objective.num_queries = 0
     delta_target = 1 / (objective.num_users ** 1.5)
     T = calculate_iterations(k, gamma)
@@ -460,9 +399,7 @@ def DP_local_search(objective: MSDAmazonObjective, ground_set, partition_map, pa
     return S_best, val, cov, div, objective.num_queries
 
 def random_baseline_matroid(objective: MSDObjective, ground_set: GroundSet, partition_map, partition_limits, k):
-    """
-    Generates a random feasible set that satisfies the partition matroid constraints.
-    """
+
     elements = list(ground_set.elements)
     random.shuffle(elements)
 

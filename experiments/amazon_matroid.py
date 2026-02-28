@@ -7,14 +7,12 @@ import pandas as pd
 from typing import Dict, List, Any, Set, Tuple
 
 # Custom module imports
-from dp_mechanisms import get_best_eps_0
-from local_search_algorithms import (
+from src.algorithms import (
     local_search,
     DP_sample_local_search,
     random_baseline,
 )
-from classes import GroundSet, MSDAmazonObjectiveMat
-from greedy_algorithms import greedy
+from src.classes import GroundSet, MSDAmazonObjectiveMat
 
 
 def precompute_distances(meta_df: pd.DataFrame) -> Dict[str, Dict[str, float]]:
@@ -53,9 +51,6 @@ def run_matroid_experiment(
         params: Dict[str, Any],
         reps: int
 ) -> List[Dict[str, Any]]:
-    """
-    Executes benchmark for Local Search variants under Partition Matroid constraints.
-    """
     results = []
     rk, eps, lam, gamma = params['k'], params['eps'], params['lambda'], params['gamma']
     is_private = params['private']

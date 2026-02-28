@@ -8,9 +8,7 @@ import numpy as np
 # ============================================================
 
 def gumbel_noise(scale: float) -> float:
-    """
-    Draw a single Gumbel noise sample with the given scale.
-    """
+
     return np.random.gumbel(scale=scale)
 
 
@@ -24,11 +22,6 @@ def exp_mech(
     sensitivity: float,
     private: bool = True,
 ):
-    """
-    Selects an element using the Exponential Mechanism.
-
-    If private=False, returns the exact maximizer.
-    """
     if private:
         noise_scale = 2 * sensitivity / eps
 
@@ -52,25 +45,12 @@ def get_best_eps_0(
     k: int,
     decomposable: bool = True,
 ) -> float:
-    """
-    Computes candidate ε₀ values under different composition bounds
-    and returns the largest valid one.
-
-    Includes:
-        1. Basic Composition
-        2. Advanced Composition
-        3. Gupta Bound (if decomposable=True)
-    """
-
-    # 1. Basic Composition
     eps_basic = eps_target / k
 
-    # 2. Advanced Composition
     log_term = math.log(1.0 / delta_target)
     term1 = (2 * log_term) / k
     eps_adv = math.sqrt(term1 + (eps_target / k)) - math.sqrt(term1)
 
-    # 3. Gupta Bound (for decomposable objectives)
     if decomposable:
         eps_gupta = math.log(
             1 + eps_target / (4 + log_term)

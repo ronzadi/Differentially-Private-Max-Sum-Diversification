@@ -4,10 +4,6 @@ import numpy as np
 
 class GroundSet:
     def __init__(self, elements):
-        """
-        Args:
-            elements: A list of indices or objects (e.g., [0, 1, 2, ..., 19])
-        """
         self.elements = elements
         self.nb_elements = len(elements)
 
@@ -16,32 +12,17 @@ class GroundSet:
 
 
 class MSDObjective(ABC):
-    """
-    Abstract Base Class for submodular+MSD functions.
-    """
 
     @abstractmethod
     def evaluate(self, S, distort=False):
-        """
-        Calculates f(S).
-        Returns: (value, auxiliary)
-        """
         pass
 
     @abstractmethod
     def marginal_gain(self, e, S, auxiliary, charge):
-        """
-        Calculates f(S U {e}) - f(S).
-        Returns: (gain, new_auxiliary)
-        """
         pass
 
     def add_one_element(self, e, S, auxiliary):
-        """
-        A default implementation for adding an element.
-        """
         pass
-
 
 
 class MSDUberObjective(MSDObjective):  # Inherits from MSDObjective if required by your script
@@ -72,7 +53,6 @@ class MSDUberObjective(MSDObjective):  # Inherits from MSDObjective if required 
     def _get_similarity_row(self, grid_idx):
         """
         Calculates 1 - M(i, j) where M(i, j) is normalized Manhattan distance.
-        Matches the utility function logic: fD(S) = sum(1 - min M(l, p)).
         """
         # L1 Distance: |i1 - j1| + |i2 - j2|
         diffs = np.abs(self.passengers - self.grid[grid_idx])
@@ -85,10 +65,6 @@ class MSDUberObjective(MSDObjective):  # Inherits from MSDObjective if required 
         return np.maximum(0, 1.0 - normalized_dists)
 
     def evaluate(self, S, distort=True):
-        """
-        Full evaluation of a set S for Uber.
-        Now consistent with Amazon signature and distortion logic.
-        """
         self.num_queries += 1
         if not S:
             # Matches Amazon: returns 4 values and an empty state tuple
@@ -122,9 +98,7 @@ class MSDUberObjective(MSDObjective):  # Inherits from MSDObjective if required 
         return total_val, coverage_term, avg_dist, (max_sims, dist_sum)
 
     def marginal_gain(self, e, S, auxiliary, charge=True):
-        """
-        Efficiently calculates the increase in utility if element 'e' is added to 'S'.
-        """
+
         if charge:
             self.num_queries += 1
 
@@ -154,7 +128,7 @@ class MSDUberObjective(MSDObjective):  # Inherits from MSDObjective if required 
 
     def add_one_element(self, e, S, auxiliary):
         """
-        Updates the auxiliary state for Uber (max_sims and dist_sum).
+        Updates the auxiliary state.
         """
         max_sims, current_dist_sum = auxiliary
 
@@ -288,7 +262,7 @@ class MSDAmazonObjective(MSDObjective):
         return total_val, relevance_term, avg_dist, (max_ratings, dist_sum)
 
     def evaluate_swap(self, e_out, e_in, S, auxiliary, distort=True):
-        """NEW: Fast swap evaluation using coverage counts in auxiliary."""
+
         self.num_queries += 1
         coverage_counts, current_dist_sum = auxiliary
         # Fast O(1) lookup instead of O(N) set building
@@ -316,7 +290,7 @@ class MSDAmazonObjective(MSDObjective):
         return total_val
 
     def swap_element(self, e_out, e_in, S, auxiliary):
-        """The 'commit_swap' equivalent. Returns a new updated auxiliary state."""
+
         max_ratings, current_dist_sum = auxiliary
         new_max_ratings = max_ratings.copy()
 
