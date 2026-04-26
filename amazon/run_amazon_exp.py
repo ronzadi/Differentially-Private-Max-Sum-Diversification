@@ -11,9 +11,17 @@ try:
 except ModuleNotFoundError:
     from run_amazon_matroid_exp import precompute_distances
 from classes import GroundSet, MSDAmazonObjective
-from greedy_algorithms import greedy, DP_greedy, DP_sample_greedy, random_baseline
+from greedy_algorithms import greedy, DP_greedy, DP_sample_greedy, random_baseline, DP_greedy_rel_only, DP_HRHR
 from dp_mechanisms import get_best_eps_0
+import ast
 
+
+def strict_parse_categories(cat_string):
+    # This will raise ValueError if cat_string is not a string
+    # or SyntaxError if it is not a valid Python literal (the list)
+    cat_list = ast.literal_eval(cat_string)
+
+    return {str(c).lower().strip() for c in cat_list if c != 'Health Care'}
 
 def run_amazon_experiment(objective, ground_set, params, rep):
     results = []
@@ -28,9 +36,10 @@ def run_amazon_experiment(objective, ground_set, params, rep):
         ('DPGreedy', DP_greedy, [objective, ground_set, k, eps_0, p]),
         ('DPSampleOblGreedy', DP_sample_greedy, [objective, ground_set, k, eps_0, p, True, g]),
         ('DPSampleGreedy', DP_sample_greedy, [objective, ground_set, k, eps_0, p, False, g]),
-        ('Random', random_baseline, [objective, ground_set, k])
+        ('Random', random_baseline, [objective, ground_set, k]),
+        ('DPRelGreedy', DP_greedy_rel_only, [objective, ground_set, k, eps_0, p]),
+        ('DPHRHR', DP_HRHR, [objective, ground_set, k, eps_0, p])
     ]
-
     final_selected = {}
     for i in range(rep):
         print(f"\n--- Repetition {i + 1}/{rep} ---")
@@ -71,11 +80,12 @@ if __name__ == "__main__":
     prefix = '../' if platform.system() == 'Windows' else ''
     reviews_path = prefix + "datasets/amazon/FULL_Health_and_Household_Top10k_Dense.csv"
     reviews_df = pd.read_csv(reviews_path, header=None, names=['user_id', 'parent_asin', 'rating', 'timestamp'])
+    reviews_df['rating'] = 1
 
     meta_path = prefix + "datasets/amazon/FULL_meta_Health_and_Household_top10k.csv"
     meta_df = pd.read_csv(meta_path, sep='\x1f', low_memory=False)
     meta_df = meta_df[meta_df['categories'].apply(lambda c: 'Health Care' in c)]
-    meta_df = meta_df.sort_values(by='rating_number', ascending=False).head(1000)
+    meta_df = meta_df.sort_values(by='rating_number', ascending=False).head(5000)
 
     # 1. Get the list of ASINs from the filtered meta_df
     selected_asins = meta_df['parent_asin'].unique()
@@ -88,10 +98,7 @@ if __name__ == "__main__":
     print("Preparing category lookup...")
     product_categories_dict = (
         meta_df.set_index('parent_asin')['categories']
-        .astype(str)
-        .str.lower()
-        .str.split()
-        .apply(set)
+        .apply(strict_parse_categories)
         .to_dict()
     )
 
@@ -111,37 +118,42 @@ if __name__ == "__main__":
     )
 
     param_grid = [
-        {'k': 10, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        {'k': 10, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        {'k': 20, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        # {'k': 10, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
-        {'k': 30, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        {'k': 40, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        # {'k': 15, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
-        {'k': 50, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        {'k': 60, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        # {'k': 25, 'eps': 0.1, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
-        {'k': 70, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        {'k': 80, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        {'k': 90, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        {'k': 100, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        {'k': 30, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        ##
-        # {'k': 10, 'eps': 0.01, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
-        {'k': 60, 'eps': 0.02, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        # {'k'2 10, 'eps': 0.03, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
-        {'k': 60, 'eps': 0.04, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        # {'k'2 10, 'eps': 0.05, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
-        {'k': 60, 'eps': 0.06, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        # {'k'2 10, 'eps': 0.07, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
-        {'k': 60, 'eps': 0.08, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        # {'k'2 10, 'eps': 0.09, 'lambda': 0.15, 'private': True, 'gamma': 0.1},
-        {'k': 60, 'eps': 0.1, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        {'k': 60, 'eps': 0.2, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        {'k': 60, 'eps': 0.4, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        {'k': 60, 'eps': 0.6, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        {'k': 60, 'eps': 0.8, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
-        {'k': 60, 'eps': 1, 'lambda': 0.1, 'private': True, 'gamma': 0.1},
+        # small k sweep
+        {'k': 10, 'eps': 0.2, 'lambda': 0.4, 'private': True, 'gamma': 0.1},
+        {'k': 20, 'eps': 0.2, 'lambda': 0.4, 'private': True, 'gamma': 0.1},
+        # {'k': 10, 'eps': 0.1, 'lambda': 0.45, 'private': True, 'gamma': 0.1},
+        {'k': 30, 'eps': 0.2, 'lambda': 0.4, 'private': True, 'gamma': 0.1},
+        {'k': 40, 'eps': 0.2, 'lambda': 0.4, 'private': True, 'gamma': 0.1},
+        # {'k': 15, 'eps': 0.1, 'lambda': 0.45, 'private': True, 'gamma': 0.1},
+        {'k': 50, 'eps': 0.2, 'lambda': 0.4, 'private': True, 'gamma': 0.1},
+        {'k': 60, 'eps': 0.2, 'lambda': 0.4, 'private': True, 'gamma': 0.1},
+        # {'k': 25, 'eps': 0.1, 'lambda': 0.45, 'private': True, 'gamma': 0.1},
+        {'k': 70, 'eps': 0.2, 'lambda': 0.4, 'private': True, 'gamma': 0.1},
+        {'k': 80, 'eps': 0.2, 'lambda': 0.4, 'private': True, 'gamma': 0.1},
+        {'k': 90, 'eps': 0.2, 'lambda': 0.4, 'private': True, 'gamma': 0.1},
+        {'k': 100, 'eps': 0.2, 'lambda': 0.4, 'private': True, 'gamma': 0.1},
+        # Large k sweep
+        {'k': 200, 'eps': 0.2, 'lambda': 0.4, 'private': True, 'gamma': 0.1},
+        {'k': 300, 'eps': 0.2, 'lambda': 0.4, 'private': True, 'gamma': 0.1},
+        {'k': 400, 'eps': 0.2, 'lambda': 0.4, 'private': True, 'gamma': 0.1},
+        {'k': 500, 'eps': 0.2, 'lambda': 0.4, 'private': True, 'gamma': 0.1},
+
+        #
+        {'k': 10, 'eps': 0.01, 'lambda': 0.4, 'private': True, 'gamma': 0.1},
+        {'k': 60, 'eps': 0.02, 'lambda': 0.4, 'private': True, 'gamma': 0.1},
+        # {'k'2 10, 'eps': 0.03, 'lambda': 0.45, 'private': True, 'gamma': 0.1},
+        {'k': 60, 'eps': 0.04, 'lambda': 0.4, 'private': True, 'gamma': 0.1},
+        # {'k'2 10, 'eps': 0.05, 'lambda': 0.45, 'private': True, 'gamma': 0.1},
+        {'k': 60, 'eps': 0.06, 'lambda': 0.4, 'private': True, 'gamma': 0.1},
+        # {'k'2 10, 'eps': 0.07, 'lambda': 0.45, 'private': True, 'gamma': 0.1},
+        {'k': 60, 'eps': 0.08, 'lambda': 0.4, 'private': True, 'gamma': 0.1},
+        # {'k'2 10, 'eps': 0.09, 'lambda': 0.45, 'private': True, 'gamma': 0.1},
+        {'k': 20, 'eps': 0.1, 'lambda': 0.4, 'private': True, 'gamma': 0.1},
+        {'k': 60, 'eps': 0.12, 'lambda': 0.4, 'private': True, 'gamma': 0.1},
+        {'k': 60, 'eps': 0.14, 'lambda': 0.4, 'private': True, 'gamma': 0.1},
+        {'k': 60, 'eps': 0.16, 'lambda': 0.4, 'private': True, 'gamma': 0.1},
+        {'k': 60, 'eps': 0.18, 'lambda': 0.4, 'private': True, 'gamma': 0.1},
+        {'k': 60, 'eps': 0.2, 'lambda': 0.4, 'private': True, 'gamma': 0.1},
 
         {'k': 60, 'eps': 0.1, 'lambda': 0, 'private': True, 'gamma': 0.1},
         {'k': 60, 'eps': 0.1, 'lambda': 0.2, 'private': True, 'gamma': 0.1},
@@ -169,6 +181,6 @@ if __name__ == "__main__":
         obj.lambda_param = config['lambda']
         obj.set_k(config['k'])
 
-        run_amazon_experiment(obj, g_set, config, rep=10)  # Reduced reps for speed
+        run_amazon_experiment(obj, g_set, config, rep=15)  # Reduced reps for speed
 
 
