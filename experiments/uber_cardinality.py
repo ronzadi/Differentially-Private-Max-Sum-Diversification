@@ -7,9 +7,9 @@ import numpy as np
 from typing import Dict, List, Any
 
 # Custom module imports
-from prep import UberOptimizer
-from classes import MSDUberObjective, GroundSet
-from greedy_algorithms import greedy, DP_greedy, DP_sample_greedy, random_baseline
+from src.uber_prep import UberOptimizer
+from src.classes import MSDUberObjective, GroundSet
+from src.algorithms import greedy, DP_greedy, DP_sample_greedy, random_baseline
 
 
 def get_best_eps_0(eps_target: float, delta_target: float, k: int) -> float:
