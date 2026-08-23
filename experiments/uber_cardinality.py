@@ -101,7 +101,7 @@ def run_uber_experiment(
 
 if __name__ == "__main__":
     base_dir = '../' if platform.system() == 'Windows' else ''
-    DATA_PATH = os.path.join(base_dir, 'data', 'uber', 'passengers.csv')
+    DATA_PATH = os.path.join(base_dir, 'data', 'uber.csv')
 
     # Manhattan Convex Hull
     MANHATTAN_HULL = [
